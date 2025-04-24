@@ -68,8 +68,8 @@
       "Jaguaribara-CE": ["17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45"],
       "Curupati Peixe-CE": ["13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45"]
     };
-    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTjiSCp59C0IjFGL_sZ-W8-9eUAlLhjqeEkF7NymglU1A1VGsDYP8keMEuC4Iwbou9VyxhRMSQNqKuV/pub?gid=0&single=true&output=csv';
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbx_DfjesrodFP2eg6xHoRoyxrZtyN7g9haPuQCQjQuULsbh3paIeK0qmQRm47o5xN5v/exec';
+    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?gid=0&single=true&output=csv';
+    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwpuc7tb_thRlpDL1RuCS7tmfzdWDQSd8JHfKnnlBHbRc7kDjcs9yJw0IjvBse5riPKXQ/exec';
 
     const localSel = document.getElementById('local');
     const dataSel = document.getElementById('data');
@@ -94,7 +94,7 @@
           rows.forEach(rw => {
             const cols = rw.split(',');
             const action = cols[cols.length-1];
-            if (cols[2]===local && cols[4]===d && cols[5]===h && action==='agendar') slots++;
+            if (cols[3]===local && cols[4]===d && cols[5]===h && action==='agendar') slots++;
           });
         });
         const vagas = horariosMap[local].length - slots;
@@ -120,7 +120,7 @@
         rows.forEach(rw => {
           const cols = rw.split(',');
           const action = cols[cols.length-1];
-          if (cols[2]===local && cols[4]===data && cols[5]===h && action==='agendar') taken++;
+          if (cols[3]===local && cols[4]===data && cols[5]===h && action==='agendar') taken++;
         });
         const vagas = 5 - taken;
         const opt = document.createElement('option');
@@ -140,10 +140,10 @@
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      const res = await fetch(URL_CSV);
-      const text = await res.text();
-      const rows = text.trim().split('\n').slice(1);
-      const exists = rows.find(rw => {
+      const resCSV = await fetch(URL_CSV);
+      const textCSV = await resCSV.text();
+      const rowsCSV = textCSV.trim().split('\n').slice(1);
+      const exists = rowsCSV.find(rw => {
         const cols = rw.split(',');
         const action = cols[cols.length-1];
         return cols[1]===cpf && action==='agendar';
@@ -156,7 +156,7 @@
       }
 
       await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors', headers:{},
+        method:'POST', mode:'no-cors',
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
       msgEl.textContent='Agendamento realizado com sucesso!'; msgEl.className='mensagem sucesso';
@@ -174,22 +174,22 @@
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      const res = await fetch(URL_CSV);
-      const text = await res.text();
-      const rows = text.trim().split('\n').slice(1);
-      const exists = rows.find(rw => {
+      const resCSV = await fetch(URL_CSV);
+      const textCSV = await resCSV.text();
+      const rowsCSV = textCSV.trim().split('\n').slice(1);
+      const existsCan = rowsCSV.find(rw => {
         const cols = rw.split(',');
         const action = cols[cols.length-1];
         return cols[1]===cpf && cols[3]===local && cols[4]===data && cols[5]===horario && action==='agendar';
       });
-      if (!exists) {
+      if (!existsCan) {
         msgEl.textContent='Nenhum agendamento encontrado para cancelar.';
         msgEl.className='mensagem erro';
         return;
       }
 
       await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors', headers:{},
+        method:'POST', mode:'no-cors',
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
       msgEl.textContent=`Agendamento cancelado para ${nome} em ${data} às ${horario}`;
