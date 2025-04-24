@@ -52,104 +52,112 @@
   </div>
 
   <script>
-    const localSel = document.getElementById('local');
-    const dataSel = document.getElementById('data');
-    const horarioSel = document.getElementById('horario');
-    const nomeInput = document.getElementById('nome');
-    const cpfInput = document.getElementById('cpf');
-    const telInput = document.getElementById('telefone');
-    const cancelarBtn = document.getElementById('cancelarBtn');
-    const mensagem = document.getElementById('mensagem');
+  /* ============================
+     FRONT‑END LÓGICA 100% NOVA
+     ============================ */
+  const $ = q => document.querySelector(q);
+  const $$ = q => [...document.querySelectorAll(q)];
 
-    const datasPorLocal = {
-      "Jaguaribara-CE": ["12/05","13/05","15/05","16/05"],
-      "Curupati Peixe-CE": ["14/05"]
-    };
-    const horariosPorLocal = {
-      "Jaguaribara-CE": ["17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45"],
-      "Curupati Peixe-CE": ["13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45"]
-    };
-    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?output=csv';
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyUm3Ky5C8rj5TdS6X3qJF7LelxL1d-uoAko8ANPZ6_NkANieJD5iF8Qk4jFeO0u-Ck-w/exec';
+  /* 1. Elementos ----------------------------------------------------*/
+  const selLocal   = $('#local');
+  const selData    = $('#data');
+  const selHora    = $('#horario');
+  const inpNome    = $('#nome');
+  const inpTel     = $('#telefone');
+  const inpCPF     = $('#cpf');
+  const msg        = $('#mensagem');
+  const btnCancelar = $('#cancelarBtn');
+  const form       = $('#form');
 
-    async function fetchRows() {
-      const res = await fetch(URL_CSV + '&t=' + Date.now());
-      const text = await res.text();
-      return text.split('\n').slice(1).filter(Boolean).map(r => r.split(',').map(c => c.trim()));
-    }
+  /* 2. Configurações fixas -----------------------------------------*/
+  const DATAS  = {
+    'Jaguaribara-CE'   : ['12/05','13/05','15/05','16/05'],
+    'Curupati Peixe-CE': ['14/05']
+  };
+  const HORAS = {
+    'Jaguaribara-CE'   : ['17:00','17:15','17:30','17:45','18:00','18:15','18:30','18:45','19:00','19:15','19:30','19:45','20:00','20:15','20:30','20:45'],
+    'Curupati Peixe-CE': ['13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45','15:00','15:15','15:30','15:45','16:00','16:15','16:30','16:45']
+  };
 
-    function limpar(sel, label) {
-      sel.innerHTML = `<option value="">${label}</option>`;
-      sel.disabled = true;
-    }
+  const SHEET_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?output=csv';
+  const ENDPOINT  = 'https://script.google.com/macros/s/AKfycbyUm3Ky5C8rj5TdS6X3qJF7LelxL1d-uoAko8ANPZ6_NkANieJD5iF8Qk4jFeO0u-Ck-w/exec';
 
-    localSel.addEventListener('change', async () => {
-      limpar(dataSel, 'Selecione a Data');
-      limpar(horarioSel, 'Selecione o Horário');
-      const local = localSel.value;
-      if (!local) return;
-      const rows = await fetchRows();
-      dataSel.disabled = false;
-      datasPorLocal[local].forEach(d => {
-        const disponiveis = horariosPorLocal[local].reduce((acc, h) => {
-          const usados = rows.filter(r => r[3]===local && r[4]===d && r[5]===h && r[6]==='agendar').length;
-          return acc + (usados < 5 ? 1 : 0);
-        }, 0);
-        const opt = document.createElement('option');
-        opt.value = d;
-        opt.textContent = `${d} - ${disponiveis} disponível(is)`;
-        if (disponiveis===0) opt.disabled = true;
-        dataSel.appendChild(opt);
-      });
+  /* 3. Utilidades ---------------------------------------------------*/
+  async function getPlanilha() {
+    const txt = await fetch(SHEET_CSV + '&t=' + Date.now()).then(r=>r.text());
+    return txt.trim().split(/
+?
+/).slice(1).map(l=>l.split(',').map(c=>c.trim()));
+  }
+  function resetSelect(sel,label){ sel.innerHTML = `<option value="">${label}</option>`; sel.disabled=true; }
+  function setMsg(text,tipo){ msg.textContent=text; msg.className='mensagem '+tipo; }
+
+  /* 4. Eventos – LOCAL ---------------------------------------------*/
+  selLocal.onchange = async ()=>{
+    resetSelect(selData ,'Selecione a Data');
+    resetSelect(selHora ,'Selecione o Horário');
+    if(!selLocal.value) return;
+    const dados = await getPlanilha();
+    const loc   = selLocal.value;
+    selData.disabled=false;
+    DATAS[loc].forEach(d=>{
+      const disponiveis = HORAS[loc].filter(h=>{
+        const usados = dados.filter(r=>r[3]===loc && r[4]===d && r[5]===h && r[6]==='agendar').length;
+        return usados<5;
+      }).length;
+      const o=document.createElement('option');
+      o.value=d; o.textContent=`${d} – ${disponiveis} horário(s)`;
+      if(!disponiveis) o.disabled=true;
+      selData.appendChild(o);
     });
+  };
 
-    dataSel.addEventListener('change', async () => {
-      limpar(horarioSel, 'Selecione o Horário');
-      const local = localSel.value;
-      const data = dataSel.value;
-      if (!local || !data) return;
-      horarioSel.disabled = false;
-      const rows = await fetchRows();
-      horariosPorLocal[local].forEach(h => {
-        const usados = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
-        const vagas = Math.max(0,5 - usados);
-        const opt = document.createElement('option');
-        opt.value = h;
-        opt.textContent = `${h} - ${vagas} vaga(s)`;
-        if (vagas===0) opt.disabled = true;
-        horarioSel.appendChild(opt);
-      });
+  /* 5. Eventos – DATA ----------------------------------------------*/
+  selData.onchange = async ()=>{
+    resetSelect(selHora,'Selecione o Horário');
+    if(!selData.value) return;
+    const dados = await getPlanilha();
+    const loc   = selLocal.value;
+    const dat   = selData.value;
+    selHora.disabled=false;
+    HORAS[loc].forEach(h=>{
+      const usados = dados.filter(r=>r[3]===loc && r[4]===dat && r[5]===h && r[6]==='agendar').length;
+      const vagas  = 5-usados;
+      const o=document.createElement('option');
+      o.value=h; o.textContent=`${h} – ${vagas} vaga(s)`;
+      if(!vagas) o.disabled=true;
+      selHora.appendChild(o);
     });
+  };
 
-    form.addEventListener('submit', async e => {
-      e.preventDefault(); mensagem.textContent='';
-      const local = localSel.value, data = dataSel.value, horario = horarioSel.value;
-      const nome = nomeInput.value.trim(), cpf = cpfInput.value.trim(), tel = telInput.value.trim();
-      const rows = await fetchRows();
-      if (rows.some(r=>r[1]===cpf && r[6]==='agendar')) {
-        const ex = rows.find(r=>r[1]===cpf && r[6]==='agendar');
-        mensagem.textContent = `Você já tem agendamento em ${ex[3]} dia ${ex[4]} às ${ex[5]}`;
-        mensagem.className='mensagem erro'; return;
-      }
-      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({nome,cpf,telefone:tel,local,data,horario,acao:'agendar'}) });
-      mensagem.textContent='Agendado com sucesso!'; mensagem.className='mensagem sucesso';
-      form.reset(); localSel.dispatchEvent(new Event('change'));
-    });
+  /* 6. AGENDAR ------------------------------------------------------*/
+  form.onsubmit = async ev=>{
+    ev.preventDefault(); setMsg('', '');
+    const {value:loc}=selLocal,{value:dat}=selData,{value:hor}=selHora;
+    const nome=inpNome.value.trim(), cpf=inpCPF.value.trim(), tel=inpTel.value.trim();
+    if(!loc||!dat||!hor||!nome||!cpf||!tel) return setMsg('Preencha todos os campos','erro');
 
-    cancelarBtn.addEventListener('click', async () => {
-      mensagem.textContent='';
-      const local = localSel.value, data = dataSel.value, horario = horarioSel.value;
-      const cpf = cpfInput.value.trim(), tel = telInput.value.trim();
-      const rows = await fetchRows();
-      const ex = rows.find(r=>r[1]===cpf && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
-      if (!ex) {
-        mensagem.textContent='Nada para cancelar.'; mensagem.className='mensagem erro'; return;
-      }
-      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({nome:ex[0],cpf,telefone:tel,local,data,horario,acao:'cancelar'}) });
-      mensagem.textContent = `Cancelado: ${ex[0]} em ${data} às ${horario}`;
-      mensagem.className='mensagem sucesso';
-      form.reset(); localSel.dispatchEvent(new Event('change'));
-    });
-  </script>
+    const dados = await getPlanilha();
+    const existe = dados.find(r=>r[1]===cpf && r[6]==='agendar');
+    if(existe) return setMsg(`Você já tem agendamento em ${existe[3]} dia ${existe[4]} às ${existe[5]}. Cancele antes de remarcar.`,'erro');
+
+    fetch(ENDPOINT,{method:'POST',mode:'no-cors',body:new URLSearchParams({nome,cpf,telefone:tel,local:loc,data:dat,horario:hor,acao:'agendar'})});
+    setMsg('Agendamento realizado com sucesso!','sucesso');
+    form.reset(); selLocal.dispatchEvent(new Event('change'));
+  };
+
+  /* 7. CANCELAR -----------------------------------------------------*/
+  btnCancelar.onclick = async ()=>{
+    const {value:loc}=selLocal,{value:dat}=selData,{value:hor}=selHora;
+    const cpf=inpCPF.value.trim();
+    if(!loc||!dat||!hor||!cpf) return setMsg('Preencha Local, Data, Horário e CPF para cancelar.','erro');
+    const dados = await getPlanilha();
+    const ag = dados.find(r=>r[1]===cpf && r[3]===loc && r[4]===dat && r[5]===hor && r[6]==='agendar');
+    if(!ag) return setMsg('Nenhum agendamento encontrado para esses dados.','erro');
+    fetch(ENDPOINT,{method:'POST',mode:'no-cors',body:new URLSearchParams({nome:ag[0],cpf,telefone:ag[2],local:loc,data:dat,horario:hor,acao:'cancelar'})});
+    setMsg(`Cancelado: ${ag[0]} em ${dat} às ${hor}`,'sucesso');
+    form.reset(); selLocal.dispatchEvent(new Event('change'));
+  };
+</script>
 </body>
 </html>
