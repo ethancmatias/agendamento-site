@@ -76,7 +76,7 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
-    localSel.addEventListener('change', async () => {
+    async function atualizarDisponibilidade() {
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       const local = localSel.value;
@@ -93,12 +93,14 @@
           if (count < 5) slots++;
         });
         const opt = document.createElement('option');
-        opt.value = data;
+        opt.value = `${data}`;
         opt.textContent = `${data} - ${slots} horário(s) disponíveis`;
         opt.disabled = slots===0;
         dataSel.appendChild(opt);
       });
-    });
+    }
+
+    localSel.addEventListener('change', atualizarDisponibilidade);
 
     dataSel.addEventListener('change', async () => {
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
@@ -144,8 +146,8 @@
 
       mensagem.textContent = 'Agendamento realizado com sucesso!';
       mensagem.className = 'mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      form.reset();
+      localSel.dispatchEvent(new Event('change')); // atualiza disponibilidade
     });
 
     cancelarBtn.addEventListener('click', async () => {
@@ -171,8 +173,8 @@
 
       mensagem.textContent = `Agendamento cancelado: ${nome} em ${data} às ${horario}`;
       mensagem.className = 'mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      form.reset();
+      localSel.dispatchEvent(new Event('change'));
     });
   </script>
 </body>
