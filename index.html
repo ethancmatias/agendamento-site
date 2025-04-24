@@ -80,13 +80,12 @@
     const cancelBtn = document.getElementById('cancelarBtn');
 
     localSel.addEventListener('change', async () => {
-      const local = localSel.value;
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       dataSel.disabled = true;
       horarioSel.disabled = true;
+      const local = localSel.value;
       if (!datasMap[local]) return;
-
       try {
         const res  = await fetch(CSV_URL);
         const txt  = await res.text();
@@ -101,70 +100,55 @@
             if (taken < 5) slots++;
           });
           const opt = document.createElement('option');
-          opt.value = d;
-          opt.text  = `${d} - ${slots} disponíveis`;
+          opt.value    = d;
+          opt.text     = `${d} - ${slots} disponíveis`;
           opt.disabled = slots === 0;
           dataSel.add(opt);
         });
-        dataSel.disabled = false;
-      } catch (err) {
-        // fallback: mostra datas sem contagem
-        datasMap[local].forEach(d => {
-          const opt = document.createElement('option');
-          opt.value = d;
-          opt.text  = d;
-          dataSel.add(opt);
-        });
+      } catch {
+        datasMap[local].forEach(d => dataSel.add(new Option(d, d)));
+      } finally {
         dataSel.disabled = false;
       }
     });
 
     dataSel.addEventListener('change', async () => {
-      const local = localSel.value;
-      const data  = dataSel.value;
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       horarioSel.disabled = true;
+      const local = localSel.value;
+      const data  = dataSel.value;
       if (!data) return;
-
       try {
         const res  = await fetch(CSV_URL);
         const txt  = await res.text();
         const rows = txt.trim().split('\n').slice(1);
         horariosMap[local].forEach(h => {
-          const taken     = rows.filter(r => {
+          const taken = rows.filter(r => {
             const [,,loc,dt,hr] = r.split(',');
             return loc===local && dt===data && hr===h;
           }).length;
           const avail = 5 - taken;
-          const opt   = document.createElement('option');
-          opt.value   = h;
-          opt.text    = `${h} - ${avail} vagas`;
-          opt.disabled = avail === 0;
-          horarioSel.add(opt);
+          horarioSel.add(new Option(`${h} - ${avail} vagas`, h, false, false));
+          horarioSel.options[horarioSel.options.length-1].disabled = avail === 0;
         });
-        horarioSel.disabled = false;
-      } catch (err) {
-        // fallback: mostra horários sem contar
-        horariosMap[local].forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h;
-          opt.text  = h;
-          horarioSel.add(opt);
-        });
+      } catch {
+        horariosMap[local].forEach(h => horarioSel.add(new Option(h, h)));
+      } finally {
         horarioSel.disabled = false;
       }
     });
 
     form.addEventListener('submit', async e => {
-      e.preventDefault(); msgEl.textContent=''; msgEl.className='';
+      e.preventDefault();
+      msgEl.textContent = '';
+      msgEl.className = 'mensagem';
       const nome     = document.getElementById('nome').value.trim();
       const cpf      = document.getElementById('cpf').value.trim();
       const telefone = document.getElementById('telefone').value.trim();
       const local    = localSel.value;
       const data     = dataSel.value;
       const horario  = horarioSel.value;
-
-      // verifica duplicado
+      // Verifica duplicado CSV
       try {
         const res0  = await fetch(CSV_URL);
         const txt0  = await res0.text();
@@ -179,29 +163,33 @@
         msgEl.className = 'mensagem erro';
         return;
       }
-
-      // envia ao Apps Script
-      await fetch(SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
-      });
-      msgEl.textContent = 'Agendado com sucesso!';
-      msgEl.className = 'mensagem sucesso';
-      form.reset();
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      dataSel.disabled = true;
-      horarioSel.disabled = true;
+      // Envia ao Apps Script
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
+        });
+        msgEl.textContent = 'Agendado com sucesso!';
+        msgEl.className = 'mensagem sucesso';
+        form.reset();
+        dataSel.disabled = horarioSel.disabled = true;
+        dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+        horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      } catch {
+        msgEl.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
+        msgEl.className = 'mensagem erro';
+      }
     });
 
     cancelBtn.addEventListener('click', async () => {
+      msgEl.textContent = '';
+      msgEl.className = 'mensagem';
       const nome    = document.getElementById('nome').value.trim();
       const cpf     = document.getElementById('cpf').value.trim();
       const local   = localSel.value;
       const data    = dataSel.value;
       const horario = horarioSel.value;
       let found = false;
-
       try {
         const res0  = await fetch(CSV_URL);
         const txt0  = await res0.text();
@@ -210,8 +198,7 @@
           const [,,loc,dt,hr] = r.split(',');
           return loc===local && dt===data && hr===horario && r.split(',')[1]===cpf;
         });
-      } catch (err) {
-        // se CSV falhar, tenta cancelar mesmo assim
+      } catch {
         found = true;
       }
       if (!found) {
@@ -219,17 +206,21 @@
         msgEl.className = 'mensagem erro';
         return;
       }
-      await fetch(SCRIPT_URL, {
-        method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
-      });
-      msgEl.textContent = `Cancelado: ${nome} em ${data}`;
-      msgEl.className = 'mensagem sucesso';
-      form.reset();
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      dataSel.disabled = true;
-      horarioSel.disabled = true;
+      try {
+        await fetch(SCRIPT_URL, {
+          method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
+        });
+        msgEl.textContent = `Cancelado: ${nome} em ${data}`;
+        msgEl.className = 'mensagem sucesso';
+        form.reset();
+        dataSel.disabled = horarioSel.disabled = true;
+        dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+        horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      } catch {
+        msgEl.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
+        msgEl.className = 'mensagem erro';
+      }
     });
   </script>
 </body>
