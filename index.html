@@ -93,7 +93,7 @@
         horariosMap[local].forEach(h => {
           const taken = rows.filter(rw => {
             const [,,loc,dt,hr] = rw.split(',');
-            return loc===local && dt===d && hr===h;
+            return loc===local && dt===d && hr===h && rw.split(',')[6] === 'agendar';
           }).length;
           if (taken<5) slots++;
         });
@@ -117,7 +117,7 @@
       horariosMap[local].forEach(h => {
         const taken = rows.filter(rw => {
           const [,,loc,dt,hr] = rw.split(',');
-          return loc===local && dt===data && hr===h;
+          return loc===local && dt===data && hr===h && rw.split(',')[6] === 'agendar';
         }).length;
         const available = 5 - taken;
         const opt = document.createElement('option');
@@ -140,11 +140,16 @@
       const res = await fetch(URL_CSV);
       const text = await res.text();
       const rows = text.trim().split('\n').slice(1);
-      const exists = rows.find(rw => rw.split(',')[1]===cpf);
+      // Verifica se já existe agendamento ativo para este CPF
+      const exists = rows.find(rw => {
+        const cols = rw.split(',');
+        return cols[1] === cpf && cols[6] === 'agendar';
+      });
       if (exists) {
-        const [,,loc,dt,hr] = exists.split(',');
+        const [ , , , loc, dt, hr ] = exists.split(',');
         msgEl.textContent = `Você já tem um agendamento para o dia ${dt} às ${hr} no local ${loc}. Cancele o anterior.`;
-        msgEl.className = 'mensagem erro'; return;
+        msgEl.className = 'mensagem erro';
+        return;
       }
 
       await fetch(ENDPOINT, {
@@ -166,8 +171,9 @@
       const res = await fetch(URL_CSV);
       const text = await res.text();
       const rows = text.trim().split('\n').slice(1);
-      const exists = rows.some(rw => {
-        const [,,loc,dt,hr] = rw.split(','); return loc===local&&dt===data&&hr===horario&&rw.split(',')[1]===cpf;
+      const exists = rows.find(rw => {
+        const cols = rw.split(',');
+        return cols[1] === cpf && cols[3] === local && cols[4] === data && cols[5] === horario && cols[6] === 'agendar';
       });
       if (!exists) { msgEl.textContent='Nenhum agendamento encontrado para cancelar.'; msgEl.className='mensagem erro'; return; }
 
