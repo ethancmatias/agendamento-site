@@ -79,34 +79,34 @@
     const msgEl = document.getElementById('mensagem');
     const cancelBtn = document.getElementById('cancelarBtn');
 
+    async function loadCSV() {
+      const res = await fetch(CSV_URL);
+      const txt = await res.text();
+      return txt.trim().split('\n').slice(1);
+    }
+
     localSel.addEventListener('change', async () => {
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      dataSel.disabled = true;
-      horarioSel.disabled = true;
-      const local = localSel.value;
-      if (!datasMap[local]) return;
+      dataSel.disabled = horarioSel.disabled = true;
+      if (!datasMap[localSel.value]) return;
       try {
-        const res  = await fetch(CSV_URL);
-        const txt  = await res.text();
-        const rows = txt.trim().split('\n').slice(1);
-        datasMap[local].forEach(d => {
+        const rows = await loadCSV();
+        datasMap[localSel.value].forEach(d => {
           let slots = 0;
-          horariosMap[local].forEach(h => {
+          horariosMap[localSel.value].forEach(h => {
             const taken = rows.filter(r => {
               const [,,loc,dt,hr] = r.split(',');
-              return loc===local && dt===d && hr===h;
+              return loc===localSel.value && dt===d && hr===h;
             }).length;
             if (taken < 5) slots++;
           });
-          const opt = document.createElement('option');
-          opt.value    = d;
-          opt.text     = `${d} - ${slots} disponíveis`;
+          const opt = new Option(`${d} - ${slots} disponíveis`, d);
           opt.disabled = slots === 0;
           dataSel.add(opt);
         });
-      } catch {
-        datasMap[local].forEach(d => dataSel.add(new Option(d, d)));
+      } catch (err) {
+        console.error(err);
       } finally {
         dataSel.disabled = false;
       }
@@ -115,112 +115,89 @@
     dataSel.addEventListener('change', async () => {
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       horarioSel.disabled = true;
-      const local = localSel.value;
-      const data  = dataSel.value;
-      if (!data) return;
+      if (!dataSel.value) return;
       try {
-        const res  = await fetch(CSV_URL);
-        const txt  = await res.text();
-        const rows = txt.trim().split('\n').slice(1);
-        horariosMap[local].forEach(h => {
+        const rows = await loadCSV();
+        horariosMap[localSel.value].forEach(h => {
           const taken = rows.filter(r => {
             const [,,loc,dt,hr] = r.split(',');
-            return loc===local && dt===data && hr===h;
+            return loc===localSel.value && dt===dataSel.value && hr===h;
           }).length;
           const avail = 5 - taken;
-          horarioSel.add(new Option(`${h} - ${avail} vagas`, h, false, false));
-          horarioSel.options[horarioSel.options.length-1].disabled = avail === 0;
+          const opt = new Option(`${h} - ${avail} vagas`, h);
+          opt.disabled = avail === 0;
+          horarioSel.add(opt);
         });
-      } catch {
-        horariosMap[local].forEach(h => horarioSel.add(new Option(h, h)));
+      } catch (err) {
+        console.error(err);
       } finally {
         horarioSel.disabled = false;
       }
     });
 
-    form.addEventListener('submit', async e => {
+    form.addEventListener('submit', e => {
       e.preventDefault();
       msgEl.textContent = '';
-      msgEl.className = 'mensagem';
-      const nome     = document.getElementById('nome').value.trim();
-      const cpf      = document.getElementById('cpf').value.trim();
-      const telefone = document.getElementById('telefone').value.trim();
-      const local    = localSel.value;
-      const data     = dataSel.value;
-      const horario  = horarioSel.value;
-      // Verifica duplicado CSV
-      try {
-        const res0  = await fetch(CSV_URL);
-        const txt0  = await res0.text();
-        const rows0 = txt0.trim().split('\n').slice(1);
-        const exists = rows0.find(r => r.split(',')[1] === cpf);
-        if (exists) {
-          const [,,loc,dt,hr] = exists.split(',');
-          throw new Error(`Já agendado em ${dt} às ${hr} em ${loc}`);
+      const formData = new URLSearchParams(new FormData(form));
+      formData.append('acao', 'agendar');
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Falha no servidor.');
+        return res.json();
+      })
+      .then(json => {
+        if (json.status === 'sucesso') {
+          msgEl.textContent = 'Agendado com sucesso!';
+          msgEl.className = 'mensagem sucesso';
+          form.reset();
+          dataSel.disabled = horarioSel.disabled = true;
+          dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+          horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+        } else {
+          throw new Error(json.message);
         }
-      } catch (dupErr) {
-        msgEl.textContent = dupErr.message;
+      })
+      .catch(err => {
+        console.error(err);
+        msgEl.textContent = err.message || 'Erro ao conectar.';
         msgEl.className = 'mensagem erro';
-        return;
-      }
-      // Envia ao Apps Script
-      try {
-        await fetch(SCRIPT_URL, {
-          method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-          body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
-        });
-        msgEl.textContent = 'Agendado com sucesso!';
-        msgEl.className = 'mensagem sucesso';
-        form.reset();
-        dataSel.disabled = horarioSel.disabled = true;
-        dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-        horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      } catch {
-        msgEl.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
-        msgEl.className = 'mensagem erro';
-      }
+      });
     });
 
-    cancelBtn.addEventListener('click', async () => {
+    cancelBtn.addEventListener('click', () => {
       msgEl.textContent = '';
-      msgEl.className = 'mensagem';
-      const nome    = document.getElementById('nome').value.trim();
-      const cpf     = document.getElementById('cpf').value.trim();
-      const local   = localSel.value;
-      const data    = dataSel.value;
-      const horario = horarioSel.value;
-      let found = false;
-      try {
-        const res0  = await fetch(CSV_URL);
-        const txt0  = await res0.text();
-        const rows0 = txt0.trim().split('\n').slice(1);
-        found = rows0.some(r => {
-          const [,,loc,dt,hr] = r.split(',');
-          return loc===local && dt===data && hr===horario && r.split(',')[1]===cpf;
-        });
-      } catch {
-        found = true;
-      }
-      if (!found) {
-        msgEl.textContent = 'Nenhum agendamento encontrado.';
+      const formData = new URLSearchParams(new FormData(form));
+      formData.append('acao', 'cancelar');
+      fetch(SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      })
+      .then(res => {
+        if (!res.ok) throw new Error('Falha no servidor.');
+        return res.json();
+      })
+      .then(json => {
+        if (json.status === 'sucesso') {
+          msgEl.textContent = `Cancelado: ${formData.get('nome')} em ${formData.get('data')}`;
+          msgEl.className = 'mensagem sucesso';
+          form.reset();
+          dataSel.disabled = horarioSel.disabled = true;
+          dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+          horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+        } else {
+          throw new Error(json.message);
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        msgEl.textContent = err.message || 'Erro ao conectar.';
         msgEl.className = 'mensagem erro';
-        return;
-      }
-      try {
-        await fetch(SCRIPT_URL, {
-          method: 'POST', mode: 'no-cors', headers: {'Content-Type':'application/x-www-form-urlencoded'},
-          body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
-        });
-        msgEl.textContent = `Cancelado: ${nome} em ${data}`;
-        msgEl.className = 'mensagem sucesso';
-        form.reset();
-        dataSel.disabled = horarioSel.disabled = true;
-        dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-        horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      } catch {
-        msgEl.textContent = 'Erro ao conectar com o servidor. Tente novamente.';
-        msgEl.className = 'mensagem erro';
-      }
+      });
     });
   </script>
 </body>
