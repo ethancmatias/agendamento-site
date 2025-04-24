@@ -33,10 +33,14 @@
       </select>
 
       <label for="data">Data:</label>
-      <select id="data" required><option value="">Selecione a Data</option></select>
+      <select id="data" required>
+        <option value="">Selecione a Data</option>
+      </select>
 
       <label for="horario">Horário:</label>
-      <select id="horario" required><option value="">Selecione o Horário</option></select>
+      <select id="horario" required>
+        <option value="">Selecione o Horário</option>
+      </select>
 
       <label for="nome">Nome:</label>
       <input type="text" id="nome" required />
@@ -72,7 +76,49 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
-    // ... manter listeners de localSel e dataSel ...
+    localSel.addEventListener('change', async () => {
+      const local = localSel.value;
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      if (!datas[local]) return;
+      const raw = await (await fetch(URL_CSV)).text();
+      const lines = raw.trim().split('\n').slice(1);
+      datas[local].forEach(data => {
+        let vagas = 0;
+        horarios[local].forEach(h => {
+          const count = lines.filter(l => {
+            const cols = l.split(',');
+            return cols[3] === local && cols[4] === data && cols[5] === h && cols[6] === 'agendar';
+          }).length;
+          if (count < 5) vagas++;
+        });
+        const opt = document.createElement('option');
+        opt.value = data;
+        opt.textContent = `${data} - ${vagas} horário(s) disponíveis`;
+        opt.disabled = vagas === 0;
+        dataSel.appendChild(opt);
+      });
+    });
+
+    dataSel.addEventListener('change', async () => {
+      const local = localSel.value;
+      const data = dataSel.value.split(' - ')[0];
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      const raw = await (await fetch(URL_CSV)).text();
+      const lines = raw.trim().split('\n').slice(1);
+      horarios[local].forEach(h => {
+        const count = lines.filter(l => {
+          const cols = l.split(',');
+          return cols[3] === local && cols[4] === data && cols[5] === h && cols[6] === 'agendar';
+        }).length;
+        const vagas = Math.max(0, 5 - count);
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = `${h} - ${vagas} vaga(s)`;
+        opt.disabled = vagas === 0;
+        horarioSel.appendChild(opt);
+      });
+    });
 
     form.addEventListener('submit', async e => {
       e.preventDefault(); mensagem.textContent = '';
@@ -83,21 +129,14 @@
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      // Busca dados atuais
       const raw = await (await fetch(URL_CSV)).text();
-      const lines = raw.trim().split('\n');
-      lines.shift(); // remove cabeçalho
-      const rows = lines.map(l => l.split(',').map(c=>c.trim()));
-
-      // Regra: apenas um agendamento por CPF em aberto
-      const ativo = rows.some(r => r[1] === cpf && r[6] === 'agendar');
-      if (ativo) {
-        mensagem.textContent = 'Você já tem um agendamento ativo. Cancele o anterior para reagendar.';
+      const rows = raw.trim().split('\n').slice(1).map(l => l.split(',').map(c => c.trim()));
+      if (rows.some(r => r[1] === cpf && r[6] === 'agendar')) {
+        mensagem.textContent = 'Você já tem um agendamento ativo. Cancele o anterior.';
         mensagem.className = 'mensagem erro';
         return;
       }
 
-      // Chama back-end
       await fetch(ENDPOINT, {
         method:'POST', mode:'no-cors',
         headers:{'Content-Type':'application/x-www-form-urlencoded'},
@@ -120,13 +159,8 @@
       const horario = horarioSel.value;
 
       const raw = await (await fetch(URL_CSV)).text();
-      const lines = raw.trim().split('\n');
-      lines.shift();
-      const rows = lines.map(l => l.split(',').map(c=>c.trim()));
-
-      // Verifica se existe agendamento para cancelar
-      const existe = rows.some(r => r[1]===cpf && r[2]===tel && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
-      if (!existe) {
+      const rows = raw.trim().split('\n').slice(1).map(l => l.split(',').map(c => c.trim()));
+      if (!rows.some(r => r[1]===cpf && r[2]===tel && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar')) {
         mensagem.textContent = 'Nenhum agendamento encontrado para cancelar.';
         mensagem.className = 'mensagem erro';
         return;
