@@ -1,66 +1,58 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agendamento Piscicultores - Açude Castanhão</title>
-  <style>
-    body { font-family: sans-serif; background-color: #f5f5f5; padding: 2rem; }
-    .container { background: white; padding: 2rem; max-width: 600px; margin: auto; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; margin-bottom: 1rem; }
-    label { display: block; margin-top: 1rem; }
-    input, select, button { width: 100%; padding: 0.8rem; margin-top: 0.3rem; border: 1px solid #ccc; border-radius: 8px; }
-    button { background-color: #007bff; color: white; font-weight: bold; margin-top: 1rem; }
-    .mensagem { margin-top: 1rem; font-weight: bold; }
-    .erro { color: red; }
-    .sucesso { color: green; }
-    .logo { text-align: center; margin-bottom: 1rem; }
-    .logo img { max-width: 400px; height: auto; }
-  </style>
-</head>
-<body>
-  <div class="logo">
-    <img src="MAPAAssinatura.png" alt="Ministério da Pesca e Aquicultura - Governo Federal">
-  </div>
-  <div class="container">
-    <h2>Agendamento Piscicultores - Açude Castanhão</h2>
-    <form id="form">
-      <label for="local">Local:</label>
-      <select id="local" required>
-        <option value="">Selecione o Local</option>
-        <option value="Jaguaribara-CE">Jaguaribara-CE</option>
-        <option value="Curupati Peixe-CE">Curupati Peixe-CE</option>
-      </select>
-      <label for="data">Data:</label>
-      <select id="data" required>
-        <option value="">Selecione a Data</option>
-      </select>
-      <label for="horario">Horário:</label>
-      <select id="horario" required>
-        <option value="">Selecione o Horário</option>
-      </select>
-      <label for="nome">Nome:</label>
-      <input type="text" id="nome" required />
-      <label for="telefone">Telefone (com DDD):</label>
-      <input type="text" id="telefone" required maxlength="15" placeholder="(99) 99999-9999"
-        oninput="this.value=this.value.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2').slice(0,15);">
-      <label for="cpf">CPF:</label>
-      <input type="text" id="cpf" required maxlength="14" placeholder="000.000.000-00"
-        oninput="this.value=this.value.replace(/[^\d]/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');">
-      <button type="submit">Agendar</button>
-      <button type="button" id="cancelarBtn">Cancelar Agendamento</button>
-      <div class="mensagem" id="mensagem"></div>
-    </form>
-  </div>
-  <script>
-    const datas = {"Jaguaribara-CE":["12/05","13/05","15/05","16/05"],"Curupati Peixe-CE":["14/05"]};
-    const horarios = {"Jaguaribara-CE":["17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45"],"Curupati Peixe-CE":["13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45"]};
-    const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxlA-2uJraWzvgM8156v8SFZHXK6n5rc0JkB-8WA-H3z3Y9ft9H5Yp03GRZwaW0SEcdC9s9iD6qz8e/pub?output=csv';
-    const localSel=document.getElementById('local'),dataSel=document.getElementById('data'),horarioSel=document.getElementById('horario'),form=document.getElementById('form'),msg=document.getElementById('mensagem'),cancelBtn=document.getElementById('cancelarBtn');
-    localSel.addEventListener('change',async()=>{const l=localSel.value;dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';if(!datas[l])return;const r=await fetch(CSV_URL),t=await r.text(),rows=t.trim().split('\n').slice(1);datas[l].forEach(d=>{let slots=0;horarios[l].forEach(h=>{const taken=rows.filter(rw=>{const [,,loc,dt,hr]=rw.split(',');return loc===l&&dt===d&&hr===h;}).length;if(taken<5)slots++;});const o=document.createElement('option');o.value=d;o.text=`${d} - ${slots} horário(s) com vaga(s)`;o.disabled=slots===0;dataSel.add(o);});});
-    dataSel.addEventListener('change',async()=>{const l=localSel.value,d=dataSel.value.split(' - ')[0];horarioSel.innerHTML='<option value="">Selecione o Horário</option>';const r=await fetch(CSV_URL),t=await r.text(),rows=t.trim().split('\n').slice(1);horarios[l].forEach(h=>{const taken=rows.filter(rw=>{const [,,loc,dt,hr]=rw.split(',');return loc===l&&dt===d&&hr===h;}).length;const avail=5-taken;const o=document.createElement('option');o.value=h;o.text=`${h} - ${avail} vaga(s)`;o.disabled=avail<=0;horarioSel.add(o);});});
-    form.addEventListener('submit',async e=>{e.preventDefault();msg.textContent='';msg.className='';const N=document.getElementById('nome').value.trim(),C=document.getElementById('cpf').value.trim(),T=document.getElementById('telefone').value.trim(),L=localSel.value,D=dataSel.value.split(' - ')[0],H=horarioSel.value,r=await fetch(CSV_URL),t=await r.text(),rows=t.trim().split('\n').slice(1),ex=rows.find(rw=>rw.split(',')[1]===C);if(ex){const [,,loc,dt,hr]=ex.split(',');msg.textContent=`Você já tem um agendamento para o dia ${dt} às ${hr} no local ${loc}. Cancele o anterior.`;msg.className='mensagem erro';return;}await fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(N)}&cpf=${encodeURIComponent(C)}&telefone=${encodeURIComponent(T)}&local=${encodeURIComponent(L)}&data=${encodeURIComponent(D)}&horario=${encodeURIComponent(H)}&acao=agendar`});msg.textContent='Agendamento realizado com sucesso!';msg.className='mensagem sucesso';form.reset();dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';});
-    cancelBtn.addEventListener('click',async()=>{const N=document.getElementById('nome').value.trim(),C=document.getElementById('cpf').value.trim(),T=document.getElementById('telefone').value.trim(),L=localSel.value,D=dataSel.value.split(' - ')[0],H=horarioSel.value,r=await fetch(CSV_URL),t=await r.text(),rows=t.trim().split('\n').slice(1),ex=rows.some(rw=>{const [,,loc,dt,hr]=rw.split(',');return loc===L&&dt===D&&hr===H&&rw.split(',')[1]===C;});if(!ex){msg.textContent='Nenhum agendamento para cancelar.';msg.className='mensagem erro';return;}await fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec',{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(N)}&cpf=${encodeURIComponent(C)}&telefone=${encodeURIComponent(T)}&local=${encodeURIComponent(L)}&data=${encodeURIComponent(D)}&horario=${encodeURIComponent(H)}&acao=cancelar`});msg.textContent=`Agendamento cancelado para ${N} em ${D}`;msg.className='mensagem sucesso';form.reset();dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';});
-  </script>
-</body>
-</html>
+/**
+ * Apps Script para gerenciar agendamentos na planilha "Tabela_1".
+ * Lembre-se de substituir 'SEU_SHEET_ID_AQUI' pelo ID real da sua planilha.
+ */
+
+function doPost(e) {
+  try {
+    const SHEET_ID = 'SEU_SHEET_ID_AQUI';
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sheet = ss.getSheetByName('Tabela_1');
+    const p = e.parameter;
+
+    // Extrai parâmetros
+    const nome     = p.nome;
+    const cpf      = p.cpf;
+    const telefone = p.telefone;
+    const local    = p.local;
+    const data     = p.data;
+    const horario  = p.horario;
+    const acao     = p.acao;
+
+    if (acao === 'agendar') {
+      // Adiciona uma nova linha:
+      // Colunas: Nome | CPF | Telefone | Local | Data | Horário | Ação
+      sheet.appendRow([nome, cpf, telefone, local, data, horario, 'agendar']);
+    } else if (acao === 'cancelar') {
+      // Procura pelo agendamento existente e altera somente a coluna Ação
+      const rows = sheet.getDataRange().getValues();
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        // row[0]=Nome, [1]=CPF, [2]=Telefone, [3]=Local, [4]=Data, [5]=Horário, [6]=Ação
+        if (
+          row[1] === cpf &&
+          row[2] === telefone &&
+          row[3] === local &&
+          row[4] === data &&
+          row[5] === horario &&
+          row[6] === 'agendar'
+        ) {
+          // Atualiza a coluna Ação para 'cancelar'
+          sheet.getRange(i + 1, 7).setValue('cancelar');
+          break;
+        }
+      }
+    }
+
+    // Retorna resposta de sucesso
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'ok'}))
+      .setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    // Retorna resposta de erro com a mensagem
+    return ContentService
+      .createTextOutput(JSON.stringify({status: 'error', message: err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
