@@ -71,22 +71,24 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
+    async function carregarCSV() {
+      const resposta = await fetch(URL_CSV);
+      const texto = await resposta.text();
+      return texto.trim().split('\n').slice(1).map(l => l.split(',')).filter(c => c[5] !== 'cancelar');
+    }
+
     localSel.addEventListener('change', async () => {
       const local = localSel.value;
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       if (!datas[local]) return;
 
-      const resposta = await fetch(URL_CSV);
-      const texto = await resposta.text();
-      const linhas = texto.trim().split('\n').slice(1);
+      const linhas = await carregarCSV();
 
       datas[local].forEach(data => {
         let vagasDisponiveis = 0;
         horarios[local].forEach(hora => {
-          const agendados = linhas.filter(l => {
-            const [ , , loc, dt, hr ] = l.split(',');
-            return loc === local && dt === data && hr === hora;
-          }).length;
+          const agendados = linhas.filter(([,,loc,dt,hr]) => loc === local && dt === data && hr === hora).length;
           if (agendados < 5) vagasDisponiveis++;
         });
         const opt = document.createElement('option');
@@ -101,16 +103,10 @@
       const local = localSel.value;
       const data = dataSel.value.split(' - ')[0];
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-
-      const resposta = await fetch(URL_CSV);
-      const texto = await resposta.text();
-      const linhas = texto.trim().split('\n').slice(1);
+      const linhas = await carregarCSV();
 
       horarios[local].forEach(hora => {
-        const agendados = linhas.filter(l => {
-          const [ , , loc, dt, hr ] = l.split(',');
-          return loc === local && dt === data && hr === hora;
-        }).length;
+        const agendados = linhas.filter(([,,loc,dt,hr]) => loc === local && dt === data && hr === hora).length;
         const vagas = Math.max(0, 5 - agendados);
         const opt = document.createElement('option');
         opt.value = hora;
@@ -130,14 +126,11 @@
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      const resposta = await fetch(URL_CSV);
-      const texto = await resposta.text();
-      const linhas = texto.trim().split('\n').slice(1);
+      const linhas = await carregarCSV();
 
-      const existente = linhas.find(l => l.split(',')[1] === cpf);
+      const existente = linhas.find(l => l[1] === cpf);
       if (existente) {
-        const partes = existente.split(',');
-        mensagem.textContent = `Você já tem um agendamento para o dia ${partes[3]} às ${partes[4]} no local ${partes[2]}. Cancele o anterior para agendar outro.`;
+        mensagem.textContent = `Você já tem um agendamento para o dia ${existente[3]} às ${existente[4]} no local ${existente[2]}. Cancele o anterior para agendar outro.`;
         mensagem.className = 'mensagem erro';
         return;
       }
@@ -163,14 +156,8 @@
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      const resposta = await fetch(URL_CSV);
-      const texto = await resposta.text();
-      const linhas = texto.trim().split('\n').slice(1);
-
-      const existe = linhas.some(l => {
-        const partes = l.split(',');
-        return partes[1] === cpf && partes[2] === local && partes[3] === data && partes[4] === horario;
-      });
+      const linhas = await carregarCSV();
+      const existe = linhas.some(([n, c, l, d, h]) => c === cpf && l === local && d === data && h === horario);
 
       if (!existe) {
         mensagem.textContent = 'Nenhum agendamento encontrado para cancelar com esses dados.';
