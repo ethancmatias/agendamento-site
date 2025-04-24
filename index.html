@@ -14,14 +14,8 @@
       border-radius: 12px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-    h2 {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    label {
-      display: block;
-      margin-top: 1rem;
-    }
+    h2 { text-align: center; margin-bottom: 1rem; }
+    label { display: block; margin-top: 1rem; }
     input, select, button {
       width: 100%;
       padding: 0.8rem;
@@ -41,14 +35,8 @@
     }
     .erro { color: red; }
     .sucesso { color: green; }
-    .logo {
-      text-align: center;
-      margin-bottom: 1rem;
-    }
-    .logo img {
-      max-width: 400px;
-      height: auto;
-    }
+    .logo { text-align: center; margin-bottom: 1rem; }
+    .logo img { max-width: 400px; height: auto; }
   </style>
 </head>
 <body>
@@ -82,6 +70,7 @@
       <div class="mensagem" id="mensagem"></div>
     </form>
   </div>
+
   <script>
     const datas = {
       "Jaguaribara-CE": ["12/05", "13/05", "15/05", "16/05"],
@@ -103,7 +92,6 @@
     localSel.addEventListener('change', async () => {
       const local = localSel.value;
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-
       if (!datas[local]) return;
 
       const resposta = await fetch(URL_CSV);
@@ -122,11 +110,11 @@
 
       datas[local].forEach(d => {
         const agendados = contagemPorData[d] || 0;
-        const vagasRestantes = Math.max(0, 5 - agendados);
+        const vagas = Math.max(0, 5 - agendados);
         const opt = document.createElement('option');
         opt.value = d;
-        opt.textContent = `${d} - ${vagasRestantes} vaga(s)`;
-        opt.disabled = vagasRestantes <= 0;
+        opt.textContent = `${d} - ${vagas} vaga(s)`;
+        opt.disabled = vagas <= 0;
         dataSel.appendChild(opt);
       });
     });
@@ -156,15 +144,11 @@
       const resposta = await fetch(URL_CSV);
       const texto = await resposta.text();
       const linhas = texto.trim().split('\n').slice(1);
-      const encontrado = linhas.find(l => {
-        const [nome_linha, cpf_linha, local_linha, data_linha] = l.split(',');
-        return cpf_linha === cpf;
-      });
+      const existente = linhas.find(l => l.split(',')[1] === cpf);
 
-      if (encontrado) {
-        const agendadoData = encontrado.split(',')[3];
-        const agendadoHorario = encontrado.split(',')[4];
-        mensagem.textContent = `Você já tem um agendamento para o dia ${agendadoData} às ${agendadoHorario}. Cancele o anterior para agendar outro.`;
+      if (existente) {
+        const partes = existente.split(',');
+        mensagem.textContent = `Você já tem um agendamento para o dia ${partes[3]} às ${partes[4]}. Cancele o anterior para agendar outro.`;
         mensagem.className = 'mensagem erro';
         return;
       }
@@ -192,8 +176,7 @@
 
       const resposta = await fetch(URL_CSV);
       const texto = await resposta.text();
-      const linhas = texto.trim().split('
-').slice(1);
+      const linhas = texto.trim().split('\n').slice(1);
       const existe = linhas.some(l => {
         const partes = l.split(',');
         return partes[1] === cpf && partes[2] === local && partes[3] === data && partes[4] === horario;
@@ -210,7 +193,6 @@
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
-      });
       });
 
       mensagem.textContent = `Agendamento cancelado para ${nome} em ${data}`;
