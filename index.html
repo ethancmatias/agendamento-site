@@ -32,11 +32,11 @@
         <option value="Curupati Peixe-CE">Curupati Peixe-CE</option>
       </select>
       <label for="data">Data:</label>
-      <select id="data" required>
+      <select id="data" required disabled>
         <option value="">Selecione a Data</option>
       </select>
       <label for="horario">Horário:</label>
-      <select id="horario" required>
+      <select id="horario" required disabled>
         <option value="">Selecione o Horário</option>
       </select>
       <label for="nome">Nome:</label>
@@ -52,8 +52,6 @@
   </div>
 
   <script>
-    // referências aos elementos
-    const form = document.getElementById('form');
     const localSel = document.getElementById('local');
     const dataSel = document.getElementById('data');
     const horarioSel = document.getElementById('horario');
@@ -63,109 +61,95 @@
     const cancelarBtn = document.getElementById('cancelarBtn');
     const mensagem = document.getElementById('mensagem');
 
-    const datas = {
+    const datasPorLocal = {
       "Jaguaribara-CE": ["12/05","13/05","15/05","16/05"],
       "Curupati Peixe-CE": ["14/05"]
     };
-    const horarios = {
+    const horariosPorLocal = {
       "Jaguaribara-CE": ["17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45"],
       "Curupati Peixe-CE": ["13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45"]
     };
-    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?gid=0&single=true&output=csv';
+    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?output=csv';
     const ENDPOINT = 'https://script.google.com/macros/s/AKfycbyUm3Ky5C8rj5TdS6X3qJF7LelxL1d-uoAko8ANPZ6_NkANieJD5iF8Qk4jFeO0u-Ck-w/exec';
 
     async function fetchRows() {
-      const raw = await fetch(URL_CSV + '&t=' + Date.now()).then(r => r.text());
-      return raw.trim().split('\n').slice(1).map(l => l.split(',').map(c => c.trim()));
+      const res = await fetch(URL_CSV + '&t=' + Date.now());
+      const text = await res.text();
+      return text.split('\n').slice(1).filter(Boolean).map(r => r.split(',').map(c => c.trim()));
     }
 
-    function clearSelect(sel, placeholder) {
-      sel.innerHTML = `<option value="">${placeholder}</option>`;
+    function limpar(sel, label) {
+      sel.innerHTML = `<option value="">${label}</option>`;
+      sel.disabled = true;
     }
 
     localSel.addEventListener('change', async () => {
-      clearSelect(dataSel, 'Selecione a Data');
-      clearSelect(horarioSel, 'Selecione o Horário');
+      limpar(dataSel, 'Selecione a Data');
+      limpar(horarioSel, 'Selecione o Horário');
       const local = localSel.value;
-      if (!datas[local]) return;
+      if (!local) return;
       const rows = await fetchRows();
-      datas[local].forEach(d => {
-        let count = 0;
-        horarios[local].forEach(h => {
-          if (rows.filter(r => r[3]===local && r[4]===d && r[5]===h && r[6]==='agendar').length < 5) count++;
-        });
+      dataSel.disabled = false;
+      datasPorLocal[local].forEach(d => {
+        const disponiveis = horariosPorLocal[local].reduce((acc, h) => {
+          const usados = rows.filter(r => r[3]===local && r[4]===d && r[5]===h && r[6]==='agendar').length;
+          return acc + (usados < 5 ? 1 : 0);
+        }, 0);
         const opt = document.createElement('option');
         opt.value = d;
-        opt.textContent = `${d} - ${count} disponível(is)`;
-        if (!count) opt.disabled = true;
+        opt.textContent = `${d} - ${disponiveis} disponível(is)`;
+        if (disponiveis===0) opt.disabled = true;
         dataSel.appendChild(opt);
       });
     });
 
     dataSel.addEventListener('change', async () => {
-      clearSelect(horarioSel, 'Selecione o Horário');
+      limpar(horarioSel, 'Selecione o Horário');
       const local = localSel.value;
       const data = dataSel.value;
       if (!local || !data) return;
+      horarioSel.disabled = false;
       const rows = await fetchRows();
-      horarios[local].forEach(h => {
-        const used = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
-        const available = Math.max(0, 5 - used);
+      horariosPorLocal[local].forEach(h => {
+        const usados = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
+        const vagas = Math.max(0,5 - usados);
         const opt = document.createElement('option');
         opt.value = h;
-        opt.textContent = `${h} - ${available} vaga(s)`;
-        if (available === 0) opt.disabled = true;
+        opt.textContent = `${h} - ${vagas} vaga(s)`;
+        if (vagas===0) opt.disabled = true;
         horarioSel.appendChild(opt);
       });
     });
 
     form.addEventListener('submit', async e => {
-      e.preventDefault(); mensagem.textContent = '';
-      const nome = nomeInput.value.trim();
-      const cpf = cpfInput.value.trim();
-      const tel = telInput.value.trim();
-      const local = localSel.value;
-      const data = dataSel.value;
-      const horario = horarioSel.value;
+      e.preventDefault(); mensagem.textContent='';
+      const local = localSel.value, data = dataSel.value, horario = horarioSel.value;
+      const nome = nomeInput.value.trim(), cpf = cpfInput.value.trim(), tel = telInput.value.trim();
       const rows = await fetchRows();
-      const exist = rows.find(r => r[1]===cpf && r[6]==='agendar');
-      if (exist) {
-        mensagem.textContent = `Já tem agendamento em ${exist[3]} dia ${exist[4]} às ${exist[5]}`;
-        mensagem.className = 'mensagem erro';
-        return;
+      if (rows.some(r=>r[1]===cpf && r[6]==='agendar')) {
+        const ex = rows.find(r=>r[1]===cpf && r[6]==='agendar');
+        mensagem.textContent = `Você já tem agendamento em ${ex[3]} dia ${ex[4]} às ${ex[5]}`;
+        mensagem.className='mensagem erro'; return;
       }
-      const body = new URLSearchParams({ nome, cpf, telefone: tel, local, data, horario, acao: 'agendar' });
-      await fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', body });
-      mensagem.textContent = 'Agendado com sucesso!';
-      mensagem.className = 'mensagem sucesso';
-      form.reset();
-      localSel.dispatchEvent(new Event('change'));
+      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({nome,cpf,telefone:tel,local,data,horario,acao:'agendar'}) });
+      mensagem.textContent='Agendado com sucesso!'; mensagem.className='mensagem sucesso';
+      form.reset(); localSel.dispatchEvent(new Event('change'));
     });
 
     cancelarBtn.addEventListener('click', async () => {
-      mensagem.textContent = '';
-      const cpf = cpfInput.value.trim();
-      const tel = telInput.value.trim();
-      const local = localSel.value;
-      const data = dataSel.value;
-      const horario = horarioSel.value;
+      mensagem.textContent='';
+      const local = localSel.value, data = dataSel.value, horario = horarioSel.value;
+      const cpf = cpfInput.value.trim(), tel = telInput.value.trim();
       const rows = await fetchRows();
-      const ex = rows.find(r => r[1]===cpf && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
+      const ex = rows.find(r=>r[1]===cpf && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
       if (!ex) {
-        mensagem.textContent = 'Nada para cancelar.';
-        mensagem.className = 'mensagem erro';
-        return;
+        mensagem.textContent='Nada para cancelar.'; mensagem.className='mensagem erro'; return;
       }
-      const body = new URLSearchParams({ nome: ex[0], cpf, telefone: tel, local, data, horario, acao: 'cancelar' });
-      await fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', body });
+      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', body: new URLSearchParams({nome:ex[0],cpf,telefone:tel,local,data,horario,acao:'cancelar'}) });
       mensagem.textContent = `Cancelado: ${ex[0]} em ${data} às ${horario}`;
-      mensagem.className = 'mensagem sucesso';
-      form.reset();
-      localSel.dispatchEvent(new Event('change'));
+      mensagem.className='mensagem sucesso';
+      form.reset(); localSel.dispatchEvent(new Event('change'));
     });
-
-    // inicializa
-    window.addEventListener('load', () => localSel.dispatchEvent(new Event('change')));
   </script>
 </body>
 </html>
