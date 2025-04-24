@@ -60,12 +60,10 @@
   </div>
 
   <script>
-    /* URLs */
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD1qSlIS71--xdEJ3LJCzuXdrF876fOzrsotEL45rPraJ_Cg8UkJvQ8wtZXn2eWAzMGQevP2qtviJH/pub?gid=0&single=true&output=csv';
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwvYUDpWuWa9SirLpY8OCzgBShxYwMtupIFiRnqmXewgt18dbtVzmGyRsqvaFQSB2WkUA/exec';
     const LIMITE = 5;
 
-    /* Datas e horários disponíveis */
     const datasMap = {
       'Jaguaribara-CE': ['12/05','13/05','15/05','16/05'],
       'Curupati Peixe-CE': ['14/05']
@@ -75,7 +73,6 @@
       'Curupati Peixe-CE': ['13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45','15:00','15:15','15:30','15:45','16:00','16:15','16:30','16:45']
     };
 
-    /* Elementos */
     const localSel   = document.getElementById('local');
     const dataSel    = document.getElementById('data');
     const horarioSel = document.getElementById('horario');
@@ -83,48 +80,50 @@
     const form       = document.getElementById('form');
     const cancelBtn  = document.getElementById('cancelarBtn');
 
-    /* Helpers */
     const fetchCSV = () => fetch(CSV_URL).then(r=>r.text());
-    const rowsToArray = txt => txt.trim().split('\n').slice(1);
-    const ocupados = (rows,l,d,h)=>rows.filter(r=>{const c=r.replace(/"/g,'').split(',');return c[3]===l&&c[4]===d&&c[5]===h;}).length;
-    const mostra   = (txt,ok=false)=>{msgEl.textContent=txt;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
 
-    /* Popular datas após selecionar local */
-    localSel.addEventListener('change',async()=>{
-      dataSel.innerHTML='<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-      const loc=localSel.value;if(!loc) return;
-      let rows=null;
-      try { rows = rowsToArray(await fetchCSV()); }
-      catch(e){ console.warn('Planilha inacessível – exibindo datas mesmo assim'); }
+    const populaDatas = async () => {
+      const loc = localSel.value;
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      if(!datasMap[loc]) return;
       datasMap[loc].forEach(d=>{
-        const livres=horariosMap[loc].reduce((s,h)=>s+(ocupados(rows,loc,d,h)<LIMITE?1:0),0);
-        const opt=new Option(`${d} - ${livres} horário(s)`,d);
-        if(livres===0) opt.style.color='#bbb';
+        const opt = new Option(d,d);
         dataSel.add(opt);
       });
-    });
+    };
 
-    /* Popular horários após selecionar data */
-    dataSel.addEventListener('change',async()=>{
-      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-      const loc=localSel.value;const d=dataSel.value;if(!d) return;
-      let rows=[];try{rows=rowsToArray(await fetchCSV());}catch(e){}
-      horariosMap[loc].forEach(h=>{
-        const livres=LIMITE-ocupados(rows,loc,d,h);
-        const opt=new Option(`${h} - ${livres} vaga(s)`,h);
-        if(livres===0) opt.style.color='#bbb';
-        horarioSel.add(opt);
-      });
-    });
+    const populaHorarios = () => {
+      const loc = localSel.value;
+      const d   = dataSel.value;
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      if(!d) return;
+      horariosMap[loc].forEach(h=>horarioSel.add(new Option(h,h)));
+    };
 
-    /* Dispara evento quando a página carrega */
-    document.addEventListener('DOMContentLoaded',()=>{
-      if(localSel.value) localSel.dispatchEvent(new Event('change'));
-    });
+    localSel.addEventListener('change',populaDatas);
+    dataSel.addEventListener('change',populaHorarios);
 
-    /* SUBMISSÃO: 1 CPF = 1 agendamento global */
     form.addEventListener('submit',async e=>{
-      e.preventDefault();mostra('');
+      e.preventDefault(); msgEl.textContent='';
       const nome=document.getElementById('nome').value.trim();
-      const cpf=document.getElementById
+      const cpf=document.getElementById('cpf').value.trim();
+      const telefone=document.getElementById('telefone').value.trim();
+      const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
+
+      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({nome,cpf,telefone,local:loc,data:d,horario:h,acao:'agendar'})});
+      msgEl.textContent='Agendamento realizado!'; msgEl.className='mensagem sucesso';
+      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+    });
+
+    cancelBtn.addEventListener('click',async()=>{
+      const cpf=document.getElementById('cpf').value.trim();
+      const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
+      if(!cpf||!loc||!d||!h){msgEl.textContent='Preencha CPF, local, data e horário.';msgEl.className='mensagem erro';return;}
+      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({cpf,local:loc,data:d,horario:h,acao:'cancelar'})});
+      msgEl.textContent='Agendamento cancelado!'; msgEl.className='mensagem sucesso';
+      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+    });
+  </script>
+</body>
+</html>
