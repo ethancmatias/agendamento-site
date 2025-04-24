@@ -86,7 +86,8 @@
 
     localSel.addEventListener('change',async()=>{
       dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-      const loc=localSel.value;if(!loc)return;let rows=[];try{rows=(await fetchCSV()).trim().split('\n').slice(1);}catch(e){return mostra('Erro planilha');}
+      const loc=localSel.value;if(!loc)return;let rows=[];try{rows=(await fetchCSV()).trim().split('
+').slice(1);}catch(e){console.warn('Falha ao ler CSV – prosseguindo sem contar vagas'); rows=[];}
       datasMap[loc].forEach(d=>{const livres=horariosMap[loc].reduce((a,h)=>a+(ocupados(rows,loc,d,h)<LIMITE?1:0),0);const o=new Option(`${d} - ${livres} horário(s)`,d);if(livres===0)o.style.color='#bbb';dataSel.add(o);});
     });
 
