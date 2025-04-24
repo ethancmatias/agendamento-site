@@ -139,8 +139,6 @@
       const texto = await resposta.text();
       const linhas = texto.trim().split('
 ').slice(1);
-      const encontrado = linhas.find(l => {
-        const [nome_linha, cpf_linha, local_linha, data_linha] = l.split(',');
         return cpf_linha === cpf;
       });
 
