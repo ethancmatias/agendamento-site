@@ -80,9 +80,12 @@
     const dataSel    = document.getElementById('data');
     const horarioSel = document.getElementById('horario');
     const msgEl      = document.getElementById('mensagem');
+    const form       = document.getElementById('form');
+    const cancelBtn  = document.getElementById('cancelarBtn');
 
     /* Helpers */
     const fetchCSV = () => fetch(CSV_URL).then(r=>r.text());
+    const rowsToArray = txt => txt.trim().split('\n').slice(1);
     const ocupados = (rows,l,d,h)=>rows.filter(r=>{const c=r.replace(/"/g,'').split(',');return c[3]===l&&c[4]===d&&c[5]===h;}).length;
     const mostra   = (txt,ok=false)=>{msgEl.textContent=txt;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
 
@@ -91,7 +94,7 @@
       dataSel.innerHTML='<option value="">Selecione a Data</option>';
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
       const loc=localSel.value;if(!loc) return;
-      let rows=[];try{rows=(await fetchCSV()).trim().split('\n').slice(1);}catch(e){console.warn('CSV falhou, sem contagem de vagas');}
+      let rows=[];try{rows=rowsToArray(await fetchCSV());}catch(e){console.warn('CSV falhou, sem contagem de vagas');}
       datasMap[loc].forEach(d=>{
         const livres=horariosMap[loc].reduce((s,h)=>s+(ocupados(rows,loc,d,h)<LIMITE?1:0),0);
         const opt=new Option(`${d} - ${livres} horário(s)`,d);
@@ -104,7 +107,7 @@
     dataSel.addEventListener('change',async()=>{
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
       const loc=localSel.value;const d=dataSel.value;if(!d) return;
-      let rows=[];try{rows=(await fetchCSV()).trim().split('\n').slice(1);}catch(e){}
+      let rows=[];try{rows=rowsToArray(await fetchCSV());}catch(e){}
       horariosMap[loc].forEach(h=>{
         const livres=LIMITE-ocupados(rows,loc,d,h);
         const opt=new Option(`${h} - ${livres} vaga(s)`,h);
@@ -113,12 +116,13 @@
       });
     });
 
-    /* Dispara evento quando a página carrega, se um local já estiver selecionado */
+    /* Dispara evento quando a página carrega */
     document.addEventListener('DOMContentLoaded',()=>{
       if(localSel.value) localSel.dispatchEvent(new Event('change'));
     });
 
-    /* Submissão e cancelamento continuam iguais... (omiti por brevidade) */
-  </script>
-</body>
-</html>
+    /* SUBMISSÃO: 1 CPF = 1 agendamento global */
+    form.addEventListener('submit',async e=>{
+      e.preventDefault();mostra('');
+      const nome=document.getElementById('nome').value.trim();
+      const cpf=document.getElementById
