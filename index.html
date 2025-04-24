@@ -109,25 +109,47 @@
       });
 
       datas[local].forEach(d => {
-        const agendados = contagemPorData[d] || 0;
-        const vagas = Math.max(0, 5 - agendados);
+        let totalVagas = 0;
+        horarios[local].forEach(h => {
+          const count = linhas.filter(l => {
+            const [ , , localLinha, dataLinha, horaLinha ] = l.split(',');
+            return localLinha === local && dataLinha === d && horaLinha === h;
+          }).length;
+          if (count < 5) totalVagas++;
+        });
+
         const opt = document.createElement('option');
         opt.value = d;
-        opt.textContent = `${d} - ${vagas} vaga(s)`;
-        opt.disabled = vagas <= 0;
+        opt.textContent = `${d} - ${totalVagas} horário(s) com vaga(s)`;
+        opt.disabled = totalVagas === 0;
         dataSel.appendChild(opt);
+      });
       });
     });
 
-    dataSel.addEventListener('change', () => {
+    dataSel.addEventListener('change', async () => {
       const local = localSel.value;
+      const data = dataSel.value.split(' - ')[0];
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      if (horarios[local]) {
-        horarios[local].forEach(h => {
-          const opt = document.createElement('option');
-          opt.value = h;
-          opt.textContent = h;
-          horarioSel.appendChild(opt);
+
+      const resposta = await fetch(URL_CSV);
+      const texto = await resposta.text();
+      const linhas = texto.trim().split('
+').slice(1);
+
+      horarios[local].forEach(h => {
+        const count = linhas.filter(l => {
+          const [ , , loc, dt, hr ] = l.split(',');
+          return loc === local && dt === data && hr === h;
+        }).length;
+
+        const vagasRestantes = Math.max(0, 5 - count);
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = `${h} - ${vagasRestantes} vaga(s)`;
+        opt.disabled = vagasRestantes <= 0;
+        horarioSel.appendChild(opt);
+      });
         });
       }
     });
