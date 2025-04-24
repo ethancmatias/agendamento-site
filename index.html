@@ -55,7 +55,7 @@
 
   <script>
     const datas = {
-      "Jaguaribara-CE": ["12/05", "13/05", "15/05", "16/05"],
+      "Jaguaribara-CE": ["12/05","13/05","15/05","16/05"],
       "Curupati Peixe-CE": ["14/05"]
     };
     const horarios = {
@@ -72,77 +72,38 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
-    localSel.addEventListener('change', async () => {
-      const local = localSel.value;
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      if (!datas[local]) return;
-
-      const texto = await (await fetch(URL_CSV)).text();
-      const linhas = texto.trim().split('\n').slice(1);
-
-      datas[local].forEach(data => {
-        let count = 0;
-        horarios[local].forEach(hora => {
-          const agendados = linhas.filter(l => {
-            const p = l.split(',');
-            return p[3] === local && p[4] === data && p[5] === hora && p[6] === 'agendar';
-          }).length;
-          if (agendados < 5) count++;
-        });
-        const opt = document.createElement('option');
-        opt.value = data;
-        opt.textContent = `${data} - ${count} horário(s) disponíveis`;
-        opt.disabled = count === 0;
-        dataSel.appendChild(opt);
-      });
-    });
-
-    dataSel.addEventListener('change', async () => {
-      const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-
-      const texto = await (await fetch(URL_CSV)).text();
-      const linhas = texto.trim().split('\n').slice(1);
-
-      horarios[local].forEach(hora => {
-        const agendados = linhas.filter(l => {
-          const p = l.split(',');
-          return p[3] === local && p[4] === data && p[5] === hora && p[6] === 'agendar';
-        }).length;
-        const vagas = Math.max(0, 5 - agendados);
-        const opt = document.createElement('option');
-        opt.value = hora;
-        opt.textContent = `${hora} - ${vagas} vaga(s)`;
-        opt.disabled = vagas === 0;
-        horarioSel.appendChild(opt);
-      });
-    });
+    // ... manter listeners de localSel e dataSel ...
 
     form.addEventListener('submit', async e => {
-      e.preventDefault();
-      mensagem.textContent = '';
+      e.preventDefault(); mensagem.textContent = '';
       const nome = document.getElementById('nome').value.trim();
-      const cpf = document.getElementById('cpf').value.trim();
-      const tel = document.getElementById('telefone').value.trim();
+      const cpf  = document.getElementById('cpf').value.trim();
+      const tel  = document.getElementById('telefone').value.trim();
       const local = localSel.value;
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
 
-      const texto = await (await fetch(URL_CSV)).text();
-      const linhas = texto.trim().split('\n').slice(1);
+      // Busca dados atuais
+      const raw = await (await fetch(URL_CSV)).text();
+      const lines = raw.trim().split('\n');
+      lines.shift(); // remove cabeçalho
+      const rows = lines.map(l => l.split(',').map(c=>c.trim()));
 
-      if (linhas.find(l => l.split(',')[1] === cpf && l.split(',')[6] === 'agendar')) {
+      // Regra: apenas um agendamento por CPF em aberto
+      const ativo = rows.some(r => r[1] === cpf && r[6] === 'agendar');
+      if (ativo) {
         mensagem.textContent = 'Você já tem um agendamento ativo. Cancele o anterior para reagendar.';
         mensagem.className = 'mensagem erro';
         return;
       }
 
+      // Chama back-end
       await fetch(ENDPOINT, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
+
       mensagem.textContent = 'Agendamento realizado com sucesso!';
       mensagem.className = 'mensagem sucesso';
       form.reset();
@@ -152,28 +113,31 @@
 
     cancelarBtn.addEventListener('click', async () => {
       const nome = document.getElementById('nome').value.trim();
-      const cpf = document.getElementById('cpf').value.trim();
-      const tel = document.getElementById('telefone').value.trim();
+      const cpf  = document.getElementById('cpf').value.trim();
+      const tel  = document.getElementById('telefone').value.trim();
       const local = localSel.value;
       const data = dataSel.value.split(' - ')[0];
       const horario = horarioSel.value;
-      const texto = await (await fetch(URL_CSV)).text();
-      const linhas = texto.trim().split('\n').slice(1);
 
-      if (!linhas.some(l => {
-        const p = l.split(',');
-        return p[1] === cpf && p[2] === tel && p[3] === local && p[4] === data && p[5] === horario && p[6] === 'agendar';
-      })) {
+      const raw = await (await fetch(URL_CSV)).text();
+      const lines = raw.trim().split('\n');
+      lines.shift();
+      const rows = lines.map(l => l.split(',').map(c=>c.trim()));
+
+      // Verifica se existe agendamento para cancelar
+      const existe = rows.some(r => r[1]===cpf && r[2]===tel && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
+      if (!existe) {
         mensagem.textContent = 'Nenhum agendamento encontrado para cancelar.';
         mensagem.className = 'mensagem erro';
         return;
       }
 
       await fetch(ENDPOINT, {
-        method: 'POST', mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
+        method:'POST', mode:'no-cors',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
+
       mensagem.textContent = `Agendamento cancelado: ${nome} em ${data} às ${horario}`;
       mensagem.className = 'mensagem sucesso';
       form.reset();
