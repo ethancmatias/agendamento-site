@@ -62,7 +62,6 @@
   <script>
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD1qSlIS71--xdEJ3LJCzuXdrF876fOzrsotEL45rPraJ_Cg8UkJvQ8wtZXn2eWAzMGQevP2qtviJH/pub?gid=0&single=true&output=csv';
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwvYUDpWuWa9SirLpY8OCzgBShxYwMtupIFiRnqmXewgt18dbtVzmGyRsqvaFQSB2WkUA/exec';
-    const LIMITE = 5;
 
     const datasMap = {
       'Jaguaribara-CE': ['12/05','13/05','15/05','16/05'],
@@ -80,50 +79,41 @@
     const form       = document.getElementById('form');
     const cancelBtn  = document.getElementById('cancelarBtn');
 
-    const fetchCSV = () => fetch(CSV_URL).then(r=>r.text());
+    const fetchCSV = () => fetch(CSV_URL).then(r=>r.text()).then(t=>t.trim().split('\n').slice(1));
 
-    const populaDatas = async () => {
-      const loc = localSel.value;
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      if(!datasMap[loc]) return;
-      datasMap[loc].forEach(d=>{
-        const opt = new Option(d,d);
-        dataSel.add(opt);
-      });
-    };
+    /* popular selects */
+    localSel.addEventListener('change',()=>{
+      dataSel.innerHTML='<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      datasMap[localSel.value]?.forEach(d=>dataSel.add(new Option(d,d)));
+    });
+    dataSel.addEventListener('change',()=>{
+      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      horariosMap[localSel.value]?.forEach(h=>horarioSel.add(new Option(h,h)));
+    });
 
-    const populaHorarios = () => {
-      const loc = localSel.value;
-      const d   = dataSel.value;
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      if(!d) return;
-      horariosMap[loc].forEach(h=>horarioSel.add(new Option(h,h)));
-    };
-
-    localSel.addEventListener('change',populaDatas);
-    dataSel.addEventListener('change',populaHorarios);
+    const showMsg=(t,ok=false)=>{msgEl.textContent=t;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
 
     form.addEventListener('submit',async e=>{
-      e.preventDefault(); msgEl.textContent='';
+      e.preventDefault(); showMsg('');
       const nome=document.getElementById('nome').value.trim();
-      const cpf=document.getElementById('cpf').value.trim();
+      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
       const telefone=document.getElementById('telefone').value.trim();
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
 
+      /* regra: 1 CPF apenas */
+      let rows=[];
+      try{rows=await fetchCSV();}catch{}
+      if(rows.some(r=>r.split(',')[1].replace(/[^\d]/g,'')===cpf))
+        return showMsg('Este CPF já possui um agendamento.');
+
       await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({nome,cpf,telefone,local:loc,data:d,horario:h,acao:'agendar'})});
-      msgEl.textContent='Agendamento realizado!'; msgEl.className='mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      showMsg('Agendamento realizado!',true);form.reset();dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
     });
 
     cancelBtn.addEventListener('click',async()=>{
-      const cpf=document.getElementById('cpf').value.trim();
+      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
-      if(!cpf||!loc||!d||!h){msgEl.textContent='Preencha CPF, local, data e horário.';msgEl.className='mensagem erro';return;}
+      if(!cpf||!loc||!d||!h) return showMsg('Preencha CPF, local, data e horário.');
       await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({cpf,local:loc,data:d,horario:h,acao:'cancelar'})});
-      msgEl.textContent='Agendamento cancelado!'; msgEl.className='mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-    });
-  </script>
-</body>
-</html>
+      showMsg('Agendamento cancelado!',true);form.reset();dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione
