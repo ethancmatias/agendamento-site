@@ -1,203 +1,53 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Agendamento Piscicultores - Açude Castanhão</title>
-  <style>
-    body { font-family: sans-serif; background-color: #f5f5f5; padding: 2rem; }
-    .container { background: white; padding: 2rem; max-width: 600px; margin: auto; border-radius: 12px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; margin-bottom: 1rem; }
-    label { display: block; margin-top: 1rem; }
-    input, select, button { width: 100%; padding: 0.8rem; margin-top: 0.3rem; border: 1px solid #ccc; border-radius: 8px; }
-    button { background-color: #007bff; color: white; font-weight: bold; margin-top: 1rem; }
-    .mensagem { margin-top: 1rem; font-weight: bold; }
-    .erro { color: red; }
-    .sucesso { color: green; }
-    .logo { text-align: center; margin-bottom: 1rem; }
-    .logo img { max-width: 400px; height: auto; }
-  </style>
-</head>
-<body>
-  <div class="logo">
-    <img src="MAPAAssinatura.png" alt="Ministério da Pesca e Aquicultura - Governo Federal">
-  </div>
-  <div class="container">
-    <h2>Agendamento Piscicultores - Açude Castanhão</h2>
-    <form id="form">
-      <label for="local">Local:</label>
-      <select id="local" required>
-        <option value="">Selecione o Local</option>
-        <option value="Jaguaribara-CE">Jaguaribara-CE</option>
-        <option value="Curupati Peixe-CE">Curupati Peixe-CE</option>
-      </select>
+/**
+ * Back-end do Sistema de Agendamento (Google Apps Script)
+ * Siga estes passos:
+ * 1) Na sua planilha, veja o ID puro na URL (entre '/d/' e '/edit').
+ * 2) Substitua o valor de SHEET_ID abaixo pelo ID puro.
+ * 3) Salve e em Deploy → Nova implantação → Web app:
+ *    • Executar como: Você
+ *    • Quem tem acesso: Qualquer pessoa, mesmo anônima
+ * 4) Copie a URL '/exec' resultante e cole em ENDPOINT no front-end.
+ *
+ * A aba da planilha deve se chamar exatamente 'Tabela_1' com cabeçalhos:
+ * Nome | CPF | Telefone | Local | Data | Horário | Ação
+ */
 
-      <label for="data">Data:</label>
-      <select id="data" required>
-        <option value="">Selecione a Data</option>
-      </select>
+const SHEET_ID = '1pZHnjlyRvogLUc-JuL_gcZ9K8n142LUBZy2WwiK-Ock'; // <- Cole aqui o ID puro da planilha
 
-      <label for="horario">Horário:</label>
-      <select id="horario" required>
-        <option value="">Selecione o Horário</option>
-      </select>
+function doPost(e) {
+  const p = e.parameter;
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName('Tabela_1');
 
-      <label for="nome">Nome:</label>
-      <input type="text" id="nome" required />
-
-      <label for="telefone">Telefone (com DDD):</label>
-      <input type="text" id="telefone" required maxlength="15" placeholder="(99) 99999-9999"
-             oninput="this.value=this.value.replace(/\D/g,'').replace(/(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2').slice(0,15);">
-
-      <label for="cpf">CPF:</label>
-      <input type="text" id="cpf" required maxlength="14" placeholder="000.000.000-00"
-             oninput="this.value=this.value.replace(/[^\d]/g,'').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d)/,'$1.$2').replace(/(\d{3})(\d{1,2})$/,'$1-$2');">
-
-      <button type="submit">Agendar</button>
-      <button type="button" id="cancelarBtn">Cancelar Agendamento</button>
-      <div class="mensagem" id="mensagem"></div>
-    </form>
-  </div>
-
-  <script>
-    const datasMap = {
-      "Jaguaribara-CE": ["12/05","13/05","15/05","16/05"],
-      "Curupati Peixe-CE": ["14/05"]
-    };
-    const horariosMap = {
-      "Jaguaribara-CE": ["17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:15","19:30","19:45","20:00","20:15","20:30","20:45"],
-      "Curupati Peixe-CE": ["13:00","13:15","13:30","13:45","14:00","14:15","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45"]
-    };
-    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTSLJAKjFFSBNseFLt2qav-E0EfjQ13bbqcqQWRAl54Ke0ykrLlJgTpsls2uXSlWCWyuKAdPqIDAlt_/pub?gid=0&single=true&output=csv';
-    const ENDPOINT = 'https://script.google.com/macros/s/AKfycbwpuc7tb_thRlpDL1RuCS7tmfzdWDQSd8JHfKnnlBHbRc7kDjcs9yJw0IjvBse5riPKXQ/exec';
-
-    const localSel = document.getElementById('local');
-    const dataSel = document.getElementById('data');
-    const horarioSel = document.getElementById('horario');
-    const form = document.getElementById('form');
-    const msgEl = document.getElementById('mensagem');
-    const cancelBtn = document.getElementById('cancelarBtn');
-
-    localSel.addEventListener('change', async () => {
-      const local = localSel.value;
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-      if (!datasMap[local]) return;
-
-      const res = await fetch(URL_CSV);
-      const text = await res.text();
-      const rows = text.trim().split('\n').slice(1);
-
-      datasMap[local].forEach(d => {
-        let slots = 0;
-        horariosMap[local].forEach(h => {
-          rows.forEach(rw => {
-            const cols = rw.split(',');
-            const action = cols[cols.length-1];
-            if (cols[3]===local && cols[4]===d && cols[5]===h && action==='agendar') slots++;
-          });
-        });
-        const vagas = horariosMap[local].length - slots;
-        const opt = document.createElement('option');
-        opt.value = d;
-        opt.text = `${d} - ${vagas} horário(s) com vaga(s)`;
-        opt.disabled = vagas===0;
-        dataSel.add(opt);
-      });
-    });
-
-    dataSel.addEventListener('change', async () => {
-      const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-
-      const res = await fetch(URL_CSV);
-      const text = await res.text();
-      const rows = text.trim().split('\n').slice(1);
-
-      horariosMap[local].forEach(h => {
-        let taken = 0;
-        rows.forEach(rw => {
-          const cols = rw.split(',');
-          const action = cols[cols.length-1];
-          if (cols[3]===local && cols[4]===data && cols[5]===h && action==='agendar') taken++;
-        });
-        const vagas = 5 - taken;
-        const opt = document.createElement('option');
-        opt.value = h;
-        opt.text = `${h} - ${vagas} vaga(s)`;
-        opt.disabled = vagas===0;
-        horarioSel.add(opt);
-      });
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault(); msgEl.textContent=''; msgEl.className='';
-      const nome = document.getElementById('nome').value.trim();
-      const cpf = document.getElementById('cpf').value.trim();
-      const telefone = document.getElementById('telefone').value.trim();
-      const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
-      const horario = horarioSel.value;
-
-      const resCSV = await fetch(URL_CSV);
-      const textCSV = await resCSV.text();
-      const rowsCSV = textCSV.trim().split('\n').slice(1);
-      const exists = rowsCSV.find(rw => {
-        const cols = rw.split(',');
-        const action = cols[cols.length-1];
-        return cols[1]===cpf && action==='agendar';
-      });
-      if (exists) {
-        const cols = exists.split(',');
-        msgEl.textContent = `Você já tem um agendamento para o dia ${cols[4]} às ${cols[5]} no local ${cols[3]}. Cancele o anterior.`;
-        msgEl.className = 'mensagem erro';
-        return;
+  if (p.acao === 'agendar') {
+    sheet.appendRow([
+      p.nome || '',
+      p.cpf || '',
+      p.telefone || '',
+      p.local || '',
+      p.data || '',
+      p.horario || '',
+      'agendar'
+    ]);
+  } else if (p.acao === 'cancelar') {
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      const r = rows[i];
+      if (
+        r[1] === p.cpf &&
+        r[2] === p.telefone &&
+        r[3] === p.local &&
+        r[4] === p.data &&
+        r[5] === p.horario &&
+        r[6] === 'agendar'
+      ) {
+        sheet.getRange(i + 1, 7).setValue('cancelar');
+        break;
       }
+    }
+  }
 
-      await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors',
-        body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
-      });
-      msgEl.textContent='Agendamento realizado com sucesso!'; msgEl.className='mensagem sucesso';
-      localSel.dispatchEvent(new Event('change'));
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-    });
-
-    cancelBtn.addEventListener('click', async () => {
-      msgEl.textContent=''; msgEl.className='';
-      const nome = document.getElementById('nome').value.trim();
-      const cpf = document.getElementById('cpf').value.trim();
-      const telefone = document.getElementById('telefone').value.trim();
-      const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
-      const horario = horarioSel.value;
-
-      const resCSV = await fetch(URL_CSV);
-      const textCSV = await resCSV.text();
-      const rowsCSV = textCSV.trim().split('\n').slice(1);
-      const existsCan = rowsCSV.find(rw => {
-        const cols = rw.split(',');
-        const action = cols[cols.length-1];
-        return cols[1]===cpf && cols[3]===local && cols[4]===data && cols[5]===horario && action==='agendar';
-      });
-      if (!existsCan) {
-        msgEl.textContent='Nenhum agendamento encontrado para cancelar.';
-        msgEl.className='mensagem erro';
-        return;
-      }
-
-      await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors',
-        body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
-      });
-      msgEl.textContent=`Agendamento cancelado para ${nome} em ${data} às ${horario}`;
-      msgEl.className='mensagem sucesso';
-      localSel.dispatchEvent(new Event('change'));
-      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
-    });
-  </script>
-</body>
-</html>
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: 'ok' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
