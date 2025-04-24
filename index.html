@@ -137,11 +137,19 @@
 
       const resposta = await fetch(URL_CSV);
       const texto = await resposta.text();
-      const linhas = texto.trim().split('\n').slice(1);
-      const existe = linhas.some(l => {
-        const [_, cpf_linha, __, data_linha] = l.split(',');
-        return cpf_linha === cpf && data_linha === data;
+      const linhas = texto.trim().split('
+').slice(1);
+      const encontrado = linhas.find(l => {
+        const [nome_linha, cpf_linha, local_linha, data_linha] = l.split(',');
+        return cpf_linha === cpf;
       });
+
+      if (encontrado) {
+        const agendadoData = encontrado.split(',')[3];
+        mensagem.textContent = `⚠️ Você já tem um agendamento para o dia ${agendadoData}. Cancele o anterior para agendar outro.`;
+        mensagem.className = 'mensagem erro';
+        return;
+      }
 
       if (existe) {
         mensagem.textContent = '⚠️ Você já tem um agendamento nesta data. Cancele o anterior para agendar outro.';
