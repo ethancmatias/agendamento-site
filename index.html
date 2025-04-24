@@ -97,17 +97,27 @@
     };
 
     // ==================== POPULAR SELECTS ==================
+    // ==================== POPULAR SELECTS ==================
     localSel.addEventListener('change', async () => {
       const local = localSel.value;
       dataSel.innerHTML    = '<option value="">Selecione a Data</option>';
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       if (!local) return;
-      const rows = (await fetchCSV()).trim().split('\n').slice(1);
+      let csvText = '';
+      try {
+        csvText = await fetchCSV();
+      } catch(err){
+        console.error('Erro ao baixar CSV', err);
+        return mostraMsg('Não foi possível acessar a planilha. Verifique se ela está "Publicada na Web".');
+      }
+      const rows = csvText.trim().split('
+').slice(1);
       datasMap[local].forEach(d => {
         const livres = horariosMap[local].reduce((acc,h) =>
           acc + (ocupados(rows, local, d, h) < LIMITE ? 1 : 0), 0);
         const opt = new Option(`${d} - ${livres} horário(s)`, d);
-        opt.disabled = livres===0;
+        // não bloquear opção — apenas indicar em cinza se sem vagas
+        if (livres===0) opt.style.color = '#bbb';
         dataSel.add(opt);
       });
     });
@@ -117,11 +127,19 @@
       const data  = dataSel.value;
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       if (!data) return;
-      const rows = (await fetchCSV()).trim().split('\n').slice(1);
+      let csvText = '';
+      try {
+        csvText = await fetchCSV();
+      } catch(err){
+        console.error('Erro ao baixar CSV', err);
+        return mostraMsg('Não foi possível acessar a planilha.');
+      }
+      const rows = csvText.trim().split('
+').slice(1);
       horariosMap[local].forEach(h => {
         const livres = LIMITE - ocupados(rows, local, data, h);
         const opt = new Option(`${h} - ${livres} vaga(s)`, h);
-        opt.disabled = livres===0;
+        if (livres===0) opt.style.color = '#bbb';
         horarioSel.add(opt);
       });
     });
