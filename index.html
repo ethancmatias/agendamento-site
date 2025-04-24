@@ -5,11 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agendamento Piscicultores - Açude Castanhão</title>
   <style>
-    body {
-      font-family: sans-serif;
-      background-color: #f5f5f5;
-      padding: 2rem;
-    }
+    body { font-family: sans-serif; background-color: #f5f5f5; padding: 2rem; }
     .container {
       background: white;
       padding: 2rem;
@@ -39,26 +35,32 @@
       font-weight: bold;
       margin-top: 1rem;
     }
-    .error {
-      color: red;
+    .mensagem {
       margin-top: 1rem;
+      font-weight: bold;
     }
-    .success {
-      color: green;
-      margin-top: 1rem;
+    .erro { color: red; }
+    .sucesso { color: green; }
+    .logo {
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    .logo img {
+      max-width: 400px;
+      height: auto;
     }
   </style>
 </head>
 <body>
-  <div style="text-align:center; margin-bottom: 1rem;">
-    <img src="MAPAAssinatura.png" alt="Ministério da Pesca e Aquicultura - Governo Federal" style="max-width: 400px; height: auto;">
+  <div class="logo">
+    <img src="MAPAAssinatura.png" alt="Ministério da Pesca e Aquicultura - Governo Federal">
   </div>
   <div class="container">
     <h2>Agendamento Piscicultores - Açude Castanhão</h2>
-    <form id="agendamentoForm">
+    <form id="form">
       <label for="local">Local:</label>
       <select id="local" required>
-        <option value="">Selecione...</option>
+        <option value="">Selecione o Local</option>
         <option value="Jaguaribara-CE">Jaguaribara-CE</option>
         <option value="Curupati Peixe-CE">Curupati Peixe-CE</option>
       </select>
@@ -77,73 +79,75 @@
 
       <button type="submit">Agendar</button>
       <button type="button" id="cancelarBtn">Cancelar Agendamento</button>
-      <div id="mensagem" class="success"></div>
+      <div class="mensagem" id="mensagem"></div>
     </form>
   </div>
-
   <script>
-    const form = document.getElementById('agendamentoForm');
-    const localSelect = document.getElementById('local');
-    const dataSelect = document.getElementById('data');
-    const horarioSelect = document.getElementById('horario');
-    const mensagemDiv = document.getElementById('mensagem');
-    const cancelarBtn = document.getElementById('cancelarBtn');
-
     const datas = {
       "Jaguaribara-CE": ["12/05", "13/05", "15/05", "16/05"],
       "Curupati Peixe-CE": ["14/05"]
     };
-
     const horarios = {
       "Jaguaribara-CE": ["17:00", "17:15", "17:30", "17:45", "18:00", "18:15", "18:30", "18:45", "19:00", "19:15", "19:30", "19:45", "20:00", "20:15", "20:30", "20:45"],
       "Curupati Peixe-CE": ["13:00", "13:15", "13:30", "13:45", "14:00", "14:15", "14:30", "14:45", "15:00", "15:15", "15:30", "15:45", "16:00", "16:15", "16:30", "16:45"]
     };
+    const URL_CSV = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSxlA-2uJraWzvgM8156v8SFZHXK6n5rc0JkB-8WA-H3z3Y9ft9H5Yp03GRZwaW0SEcdC9s9iD6qz8e/pub?output=csv';
 
-    const agendamentos = {};
+    const localSel = document.getElementById('local');
+    const dataSel = document.getElementById('data');
+    const horarioSel = document.getElementById('horario');
+    const form = document.getElementById('form');
+    const mensagem = document.getElementById('mensagem');
+    const cancelarBtn = document.getElementById('cancelarBtn');
 
-    localSelect.addEventListener('change', e => {
-      const local = e.target.value;
-      dataSelect.innerHTML = '<option value="">Selecione...</option>';
-      horarioSelect.innerHTML = '<option value="">Selecione...</option>';
+    localSel.addEventListener('change', () => {
+      const local = localSel.value;
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
       if (datas[local]) {
         datas[local].forEach(d => {
           const opt = document.createElement('option');
           opt.value = d;
           opt.textContent = d;
-          dataSelect.appendChild(opt);
+          dataSel.appendChild(opt);
         });
       }
     });
 
-    dataSelect.addEventListener('change', () => {
-      const local = localSelect.value;
-      const data = dataSelect.value;
-      horarioSelect.innerHTML = '<option value="">Selecione...</option>';
-
+    dataSel.addEventListener('change', () => {
+      const local = localSel.value;
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       if (horarios[local]) {
         horarios[local].forEach(h => {
-          const key = `${local}|${data}|${h}`;
-          const quantidade = agendamentos[key]?.length || 0;
           const opt = document.createElement('option');
           opt.value = h;
-          opt.textContent = `${h} (${quantidade}/5 vagas)`;
-          if (quantidade >= 5) {
-            opt.disabled = true;
-          }
-          horarioSelect.appendChild(opt);
+          opt.textContent = h;
+          horarioSel.appendChild(opt);
         });
       }
     });
 
-    form.addEventListener('submit', e => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
-      mensagemDiv.textContent = '';
-      const nome = document.getElementById('nome').value;
-      const cpf = document.getElementById('cpf').value;
-      const local = localSelect.value;
-      const data = dataSelect.value;
-      const horario = horarioSelect.value;
-      const key = `${local}|${data}|${horario}`;
+      mensagem.textContent = '';
+      const nome = document.getElementById('nome').value.trim();
+      const cpf = document.getElementById('cpf').value.trim();
+      const local = localSel.value;
+      const data = dataSel.value;
+      const horario = horarioSel.value;
+
+      const resposta = await fetch(URL_CSV);
+      const texto = await resposta.text();
+      const linhas = texto.trim().split('\n').slice(1);
+      const existe = linhas.some(l => {
+        const [_, cpf_linha, __, data_linha] = l.split(',');
+        return cpf_linha === cpf && data_linha === data;
+      });
+
+      if (existe) {
+        mensagem.textContent = '⚠️ Você já tem um agendamento nesta data. Cancele o anterior para agendar outro.';
+        mensagem.className = 'mensagem erro';
+        return;
+      }
 
       fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec', {
         method: 'POST',
@@ -152,28 +156,19 @@
         body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
 
-      if (!agendamentos[key]) agendamentos[key] = [];
-
-      if (agendamentos[key].length >= 5) {
-        mensagemDiv.textContent = 'Esse horário já está cheio. Escolha outro.';
-        mensagemDiv.className = 'error';
-        return;
-      }
-
-      agendamentos[key].push({ nome, cpf });
-      mensagemDiv.textContent = `Agendamento realizado com sucesso para ${nome} em ${data} às ${horario}`;
-      mensagemDiv.className = 'success';
+      mensagem.textContent = '✅ Agendamento realizado com sucesso!';
+      mensagem.className = 'mensagem sucesso';
       form.reset();
-      horarioSelect.innerHTML = '<option value="">Selecione...</option>';
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
 
     cancelarBtn.addEventListener('click', () => {
-      const nome = document.getElementById('nome').value;
-      const cpf = document.getElementById('cpf').value;
-      const local = localSelect.value;
-      const data = dataSelect.value;
-      const horario = horarioSelect.value;
-      const key = `${local}|${data}|${horario}`;
+      const nome = document.getElementById('nome').value.trim();
+      const cpf = document.getElementById('cpf').value.trim();
+      const local = localSel.value;
+      const data = dataSel.value;
+      const horario = horarioSel.value;
 
       fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec', {
         method: 'POST',
@@ -182,23 +177,11 @@
         body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
 
-      if (!agendamentos[key]) {
-        mensagemDiv.textContent = 'Nenhum agendamento encontrado para esse horário.';
-        mensagemDiv.className = 'error';
-        return;
-      }
-
-      const index = agendamentos[key].findIndex(entry => entry.cpf === cpf);
-      if (index !== -1) {
-        agendamentos[key].splice(index, 1);
-        mensagemDiv.textContent = `Agendamento cancelado com sucesso para ${nome} em ${data} às ${horario}`;
-        mensagemDiv.className = 'success';
-        form.reset();
-        horarioSelect.innerHTML = '<option value="">Selecione...</option>';
-      } else {
-        mensagemDiv.textContent = 'Agendamento não encontrado ou CPF incorreto.';
-        mensagemDiv.className = 'error';
-      }
+      mensagem.textContent = `❌ Agendamento cancelado para ${nome} em ${data}`;
+      mensagem.className = 'mensagem sucesso';
+      form.reset();
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
   </script>
 </body>
