@@ -32,9 +32,13 @@
         <option value="Curupati Peixe-CE">Curupati Peixe-CE</option>
       </select>
       <label for="data">Data:</label>
-      <select id="data" required><option value="">Selecione a Data</option></select>
+      <select id="data" required>
+        <option value="">Selecione a Data</option>
+      </select>
       <label for="horario">Horário:</label>
-      <select id="horario" required><option value="">Selecione o Horário</option></select>
+      <select id="horario" required>
+        <option value="">Selecione o Horário</option>
+      </select>
       <label for="nome">Nome:</label>
       <input type="text" id="nome" required />
       <label for="telefone">Telefone (com DDD):</label>
@@ -48,6 +52,17 @@
   </div>
 
   <script>
+    // referências aos elementos
+    const form = document.getElementById('form');
+    const localSel = document.getElementById('local');
+    const dataSel = document.getElementById('data');
+    const horarioSel = document.getElementById('horario');
+    const nomeInput = document.getElementById('nome');
+    const cpfInput = document.getElementById('cpf');
+    const telInput = document.getElementById('telefone');
+    const cancelarBtn = document.getElementById('cancelarBtn');
+    const mensagem = document.getElementById('mensagem');
+
     const datas = {
       "Jaguaribara-CE": ["12/05","13/05","15/05","16/05"],
       "Curupati Peixe-CE": ["14/05"]
@@ -64,14 +79,14 @@
       return raw.trim().split('\n').slice(1).map(l => l.split(',').map(c => c.trim()));
     }
 
-    function clearSelect(sel) {
-      sel.innerHTML = '<option value="">Selecione</option>';
+    function clearSelect(sel, placeholder) {
+      sel.innerHTML = `<option value="">${placeholder}</option>`;
     }
 
-    document.getElementById('local').addEventListener('change', async function() {
-      clearSelect(dataSel);
-      clearSelect(horarioSel);
-      const local = this.value;
+    localSel.addEventListener('change', async () => {
+      clearSelect(dataSel, 'Selecione a Data');
+      clearSelect(horarioSel, 'Selecione o Horário');
+      const local = localSel.value;
       if (!datas[local]) return;
       const rows = await fetchRows();
       datas[local].forEach(d => {
@@ -79,49 +94,77 @@
         horarios[local].forEach(h => {
           if (rows.filter(r => r[3]===local && r[4]===d && r[5]===h && r[6]==='agendar').length < 5) count++;
         });
-        const opt = document.createElement('option'); opt.value=d; opt.textContent=`${d} - ${count} disponível(is)`;
-        if (!count) opt.disabled=true;
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = `${d} - ${count} disponível(is)`;
+        if (!count) opt.disabled = true;
         dataSel.appendChild(opt);
       });
     });
 
-    document.getElementById('data').addEventListener('change', async function() {
-      clearSelect(horarioSel);
+    dataSel.addEventListener('change', async () => {
+      clearSelect(horarioSel, 'Selecione o Horário');
       const local = localSel.value;
-      const data = this.value;
+      const data = dataSel.value;
+      if (!local || !data) return;
       const rows = await fetchRows();
       horarios[local].forEach(h => {
-        const count = Math.max(0, 5 - rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length);
-        const opt = document.createElement('option'); opt.value=h; opt.textContent=`${h} - ${count} vagas`;
-        if (!count) opt.disabled=true;
+        const used = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
+        const available = Math.max(0, 5 - used);
+        const opt = document.createElement('option');
+        opt.value = h;
+        opt.textContent = `${h} - ${available} vaga(s)`;
+        if (available === 0) opt.disabled = true;
         horarioSel.appendChild(opt);
       });
     });
 
     form.addEventListener('submit', async e => {
-      e.preventDefault(); mensagem.textContent='';
-      const nome = nomeInput.value.trim(), cpf=cpfInput.value.trim(), tel=telInput.value.trim(), local=localSel.value;
-      const data=dataSel.value, horario=horarioSel.value;
-      const rows=await fetchRows();
-      const exist=rows.find(r=>r[1]===cpf && r[6]==='agendar');
-      if (exist) { mensagem.textContent=`Já tem em ${exist[3]} dia ${exist[4]} às ${exist[5]}`; mensagem.className='mensagem erro'; return; }
-      await fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`});
-      mensagem.textContent='Agendado com sucesso!'; mensagem.className='mensagem sucesso'; form.reset(); localSel.dispatchEvent(new Event('change'));
+      e.preventDefault(); mensagem.textContent = '';
+      const nome = nomeInput.value.trim();
+      const cpf = cpfInput.value.trim();
+      const tel = telInput.value.trim();
+      const local = localSel.value;
+      const data = dataSel.value;
+      const horario = horarioSel.value;
+      const rows = await fetchRows();
+      const exist = rows.find(r => r[1]===cpf && r[6]==='agendar');
+      if (exist) {
+        mensagem.textContent = `Já tem agendamento em ${exist[3]} dia ${exist[4]} às ${exist[5]}`;
+        mensagem.className = 'mensagem erro';
+        return;
+      }
+      const body = new URLSearchParams({ nome, cpf, telefone: tel, local, data, horario, acao: 'agendar' });
+      await fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', body });
+      mensagem.textContent = 'Agendado com sucesso!';
+      mensagem.className = 'mensagem sucesso';
+      form.reset();
+      localSel.dispatchEvent(new Event('change'));
     });
 
     cancelarBtn.addEventListener('click', async () => {
-      mensagem.textContent='';
-      const cpf=cpfInput.value.trim(), tel=telInput.value.trim(), local=localSel.value, data=dataSel.value, horario=horarioSel.value;
-      const rows=await fetchRows();
-      const ex=rows.find(r=>r[1]===cpf&&r[3]===local&&r[4]===data&&r[5]===horario&&r[6]==='agendar');
-      if (!ex) { mensagem.textContent='Nada pra cancelar.'; mensagem.className='mensagem erro'; return; }
-      await fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(ex[0])}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`});
-      mensagem.textContent=`Cancelado: ${ex[0]} em ${data} às ${horario}`; mensagem.className='mensagem sucesso'; form.reset(); localSel.dispatchEvent(new Event('change'));
+      mensagem.textContent = '';
+      const cpf = cpfInput.value.trim();
+      const tel = telInput.value.trim();
+      const local = localSel.value;
+      const data = dataSel.value;
+      const horario = horarioSel.value;
+      const rows = await fetchRows();
+      const ex = rows.find(r => r[1]===cpf && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
+      if (!ex) {
+        mensagem.textContent = 'Nada para cancelar.';
+        mensagem.className = 'mensagem erro';
+        return;
+      }
+      const body = new URLSearchParams({ nome: ex[0], cpf, telefone: tel, local, data, horario, acao: 'cancelar' });
+      await fetch(ENDPOINT, { method: 'POST', mode: 'no-cors', body });
+      mensagem.textContent = `Cancelado: ${ex[0]} em ${data} às ${horario}`;
+      mensagem.className = 'mensagem sucesso';
+      form.reset();
+      localSel.dispatchEvent(new Event('change'));
     });
 
-    // Inicializa selects
-    const form=document.getElementById('form'), localSel=document.getElementById('local'), dataSel=document.getElementById('data'), horarioSel=document.getElementById('horario');
-    const nomeInput=document.getElementById('nome'), cpfInput=document.getElementById('cpf'), telInput=document.getElementById('telefone');
+    // inicializa
     window.addEventListener('load', () => localSel.dispatchEvent(new Event('change')));
   </script>
 </body>
