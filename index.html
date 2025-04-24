@@ -145,7 +145,8 @@
 
       if (encontrado) {
         const agendadoData = encontrado.split(',')[3];
-        mensagem.textContent = `Você já tem um agendamento para o dia ${agendadoData}. Cancele o anterior para agendar outro.`;
+        const agendadoHorario = encontrado.split(',')[4];
+        mensagem.textContent = `Você já tem um agendamento para o dia ${agendadoData} às ${agendadoHorario}. Cancele o anterior para agendar outro.`;
         mensagem.className = 'mensagem erro';
         return;
       }
