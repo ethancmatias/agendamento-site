@@ -143,7 +143,7 @@
         msgEl.textContent = `Você já tem um agendamento para o dia ${dt} às ${hr} no local ${loc}. Cancele o anterior.`;
         msgEl.className = 'mensagem erro'; return;
       }
-      await fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec', {
+      await fetch('https://script.google.com/macros/s/AKfycbx5vNNc_rEYeQ1zzDTUk2jSmHnnjRt5FS-j7KILil2Fi069UsXDUwdrwyY3YitE0A2xUg/exec', {
         method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
@@ -166,7 +166,7 @@
       if (!exists) {
         msgEl.textContent='Nenhum agendamento encontrado para cancelar.'; msgEl.className='mensagem erro'; return;
       }
-      await fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec',{
+      await fetch('https://script.google.com/macros/s/AKfycbx5vNNc_rEYeQ1zzDTUk2jSmHnnjRt5FS-j7KILil2Fi069UsXDUwdrwyY3YitE0A2xUg/exec',{
         method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
