@@ -183,18 +183,34 @@
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
 
-    cancelarBtn.addEventListener('click', () => {
+    cancelarBtn.addEventListener('click', async () => {
       const nome = document.getElementById('nome').value.trim();
       const cpf = document.getElementById('cpf').value.trim();
       const local = localSel.value;
       const data = dataSel.value;
       const horario = horarioSel.value;
 
+      const resposta = await fetch(URL_CSV);
+      const texto = await resposta.text();
+      const linhas = texto.trim().split('
+').slice(1);
+      const existe = linhas.some(l => {
+        const partes = l.split(',');
+        return partes[1] === cpf && partes[2] === local && partes[3] === data && partes[4] === horario;
+      });
+
+      if (!existe) {
+        mensagem.textContent = 'Nenhum agendamento encontrado para cancelar com esses dados.';
+        mensagem.className = 'mensagem erro';
+        return;
+      }
+
       fetch('https://script.google.com/macros/s/AKfycbz8mxO5Qf8fpPm_N3BzVWKn9NkM_0V8IhT5nsYAbWGwv2Iv9I9kup4EE1GswyrLrseWFQ/exec', {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
+      });
       });
 
       mensagem.textContent = `Agendamento cancelado para ${nome} em ${data}`;
