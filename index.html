@@ -76,24 +76,30 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
+    // Adiciona timestamp para evitar cache
+    function csvUrl() {
+      return URL_CSV + '&t=' + Date.now();
+    }
+
+    async function fetchRows() {
+      const raw = await fetch(csvUrl()).then(r => r.text());
+      return raw.trim().split('\n').slice(1).map(l => l.split(',').map(c=>c.trim()));
+    }
+
     async function atualizarDisponibilidade() {
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       const local = localSel.value;
       if (!datas[local]) return;
-      const raw = await (await fetch(URL_CSV)).text();
-      const lines = raw.trim().split('\n').slice(1);
+      const rows = await fetchRows();
       datas[local].forEach(data => {
         let slots = 0;
         horarios[local].forEach(h => {
-          const count = lines.filter(l => {
-            const c = l.split(',');
-            return c[3]===local && c[4]===data && c[5]===h && c[6]==='agendar';
-          }).length;
+          const count = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
           if (count < 5) slots++;
         });
         const opt = document.createElement('option');
-        opt.value = `${data}`;
+        opt.value = data;
         opt.textContent = `${data} - ${slots} horário(s) disponíveis`;
         opt.disabled = slots===0;
         dataSel.appendChild(opt);
@@ -105,14 +111,10 @@
     dataSel.addEventListener('change', async () => {
       horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
       const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
-      const raw = await (await fetch(URL_CSV)).text();
-      const lines = raw.trim().split('\n').slice(1);
+      const data = dataSel.value;
+      const rows = await fetchRows();
       horarios[local].forEach(h => {
-        const count = lines.filter(l => {
-          const c = l.split(',');
-          return c[3]===local && c[4]===data && c[5]===h && c[6]==='agendar';
-        }).length;
+        const count = rows.filter(r => r[3]===local && r[4]===data && r[5]===h && r[6]==='agendar').length;
         const vagas = Math.max(0,5-count);
         const opt = document.createElement('option');
         opt.value = h;
@@ -128,11 +130,10 @@
       const cpf  = document.getElementById('cpf').value.trim();
       const tel  = document.getElementById('telefone').value.trim();
       const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
+      const data = dataSel.value;
       const horario = horarioSel.value;
 
-      const raw = await (await fetch(URL_CSV)).text();
-      const rows = raw.trim().split('\n').slice(1).map(l => l.split(',').map(c=>c.trim()));
+      const rows = await fetchRows();
       const existing = rows.find(r => r[1]===cpf && r[6]==='agendar');
       if (existing) {
         mensagem.textContent = `Você já tem um agendamento ativo em ${existing[3]} no dia ${existing[4]} às ${existing[5]}. Cancele o anterior.`;
@@ -140,35 +141,37 @@
         return;
       }
 
-      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      await fetch(ENDPOINT, {
+        method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
         body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
 
       mensagem.textContent = 'Agendamento realizado com sucesso!';
       mensagem.className = 'mensagem sucesso';
       form.reset();
-      localSel.dispatchEvent(new Event('change')); // atualiza disponibilidade
+      localSel.dispatchEvent(new Event('change'));
     });
 
     cancelarBtn.addEventListener('click', async () => {
+      mensagem.textContent='';
       const nome = document.getElementById('nome').value.trim();
       const cpf  = document.getElementById('cpf').value.trim();
       const tel  = document.getElementById('telefone').value.trim();
       const local = localSel.value;
-      const data = dataSel.value.split(' - ')[0];
+      const data = dataSel.value;
       const horario = horarioSel.value;
 
-      const raw = await (await fetch(URL_CSV)).text();
-      const rows = raw.trim().split('\n').slice(1).map(l => l.split(',').map(c=>c.trim()));
-      const ex = rows.find(r => r[1]===cpf && r[2]===tel && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
+      const rows = await fetchRows();
+      const ex = rows.find(r => r[1]===cpf && r[3]===local && r[4]===data && r[5]===horario && r[6]==='agendar');
       if (!ex) {
         mensagem.textContent = 'Nenhum agendamento encontrado para cancelar.';
         mensagem.className = 'mensagem erro';
         return;
       }
 
-      await fetch(ENDPOINT, { method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
-        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
+      await fetch(ENDPOINT, {
+        method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body: `cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
 
       mensagem.textContent = `Agendamento cancelado: ${nome} em ${data} às ${horario}`;
@@ -176,6 +179,9 @@
       form.reset();
       localSel.dispatchEvent(new Event('change'));
     });
+
+    // Inicializa disponibilidade ao carregar
+    window.addEventListener('load', () => localSel.dispatchEvent(new Event('change')));
   </script>
 </body>
 </html>
