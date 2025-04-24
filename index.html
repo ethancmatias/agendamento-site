@@ -91,16 +91,17 @@
       datasMap[local].forEach(d => {
         let slots = 0;
         horariosMap[local].forEach(h => {
-          const taken = rows.filter(rw => {
-            const [,,loc,dt,hr] = rw.split(',');
-            return loc===local && dt===d && hr===h && rw.split(',')[6] === 'agendar';
-          }).length;
-          if (taken<5) slots++;
+          rows.forEach(rw => {
+            const cols = rw.split(',');
+            const action = cols[cols.length-1];
+            if (cols[2]===local && cols[4]===d && cols[5]===h && action==='agendar') slots++;
+          });
         });
+        const vagas = horariosMap[local].length - slots;
         const opt = document.createElement('option');
         opt.value = d;
-        opt.text = `${d} - ${slots} horário(s) com vaga(s)`;
-        opt.disabled = slots===0;
+        opt.text = `${d} - ${vagas} horário(s) com vaga(s)`;
+        opt.disabled = vagas===0;
         dataSel.add(opt);
       });
     });
@@ -115,15 +116,17 @@
       const rows = text.trim().split('\n').slice(1);
 
       horariosMap[local].forEach(h => {
-        const taken = rows.filter(rw => {
-          const [,,loc,dt,hr] = rw.split(',');
-          return loc===local && dt===data && hr===h && rw.split(',')[6] === 'agendar';
-        }).length;
-        const available = 5 - taken;
+        let taken = 0;
+        rows.forEach(rw => {
+          const cols = rw.split(',');
+          const action = cols[cols.length-1];
+          if (cols[2]===local && cols[4]===data && cols[5]===h && action==='agendar') taken++;
+        });
+        const vagas = 5 - taken;
         const opt = document.createElement('option');
         opt.value = h;
-        opt.text = `${h} - ${available} vaga(s)`;
-        opt.disabled = available===0;
+        opt.text = `${h} - ${vagas} vaga(s)`;
+        opt.disabled = vagas===0;
         horarioSel.add(opt);
       });
     });
@@ -140,23 +143,30 @@
       const res = await fetch(URL_CSV);
       const text = await res.text();
       const rows = text.trim().split('\n').slice(1);
-      const exists = rows.find(rw => rw.split(',')[1] === cpf && rw.split(',')[6] === 'agendar');
+      const exists = rows.find(rw => {
+        const cols = rw.split(',');
+        const action = cols[cols.length-1];
+        return cols[1]===cpf && action==='agendar';
+      });
       if (exists) {
-        const [ , , , loc, dt, hr ] = exists.split(',');
-        msgEl.textContent = `Você já tem um agendamento para o dia ${dt} às ${hr} no local ${loc}. Cancele o anterior.`;
+        const cols = exists.split(',');
+        msgEl.textContent = `Você já tem um agendamento para o dia ${cols[4]} às ${cols[5]} no local ${cols[3]}. Cancele o anterior.`;
         msgEl.className = 'mensagem erro';
         return;
       }
 
       await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        method:'POST', mode:'no-cors', headers:{},
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
       });
       msgEl.textContent='Agendamento realizado com sucesso!'; msgEl.className='mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      localSel.dispatchEvent(new Event('change'));
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
 
     cancelBtn.addEventListener('click', async () => {
+      msgEl.textContent=''; msgEl.className='';
       const nome = document.getElementById('nome').value.trim();
       const cpf = document.getElementById('cpf').value.trim();
       const telefone = document.getElementById('telefone').value.trim();
@@ -169,16 +179,25 @@
       const rows = text.trim().split('\n').slice(1);
       const exists = rows.find(rw => {
         const cols = rw.split(',');
-        return cols[1] === cpf && cols[3] === local && cols[4] === data && cols[5] === horario && cols[6] === 'agendar';
+        const action = cols[cols.length-1];
+        return cols[1]===cpf && cols[3]===local && cols[4]===data && cols[5]===horario && action==='agendar';
       });
-      if (!exists) { msgEl.textContent='Nenhum agendamento encontrado para cancelar.'; msgEl.className='mensagem erro'; return; }
+      if (!exists) {
+        msgEl.textContent='Nenhum agendamento encontrado para cancelar.';
+        msgEl.className='mensagem erro';
+        return;
+      }
 
       await fetch(ENDPOINT, {
-        method:'POST', mode:'no-cors', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        method:'POST', mode:'no-cors', headers:{},
         body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(telefone)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
       });
-      msgEl.textContent=`Agendamento cancelado para ${nome} em ${data}`; msgEl.className='mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      msgEl.textContent=`Agendamento cancelado para ${nome} em ${data} às ${horario}`;
+      msgEl.className='mensagem sucesso';
+      // refresh dropdowns
+      localSel.dispatchEvent(new Event('change'));
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
   </script>
 </body>
