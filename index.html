@@ -120,8 +120,9 @@
     });
 
     form.addEventListener('submit', async e => {
-      e.preventDefault(); mensagem.textContent = '';
-      const nome = nome=document.getElementById('nome').value.trim();
+      e.preventDefault();
+      mensagem.textContent = '';
+      const nome = document.getElementById('nome').value.trim();
       const cpf = document.getElementById('cpf').value.trim();
       const tel = document.getElementById('telefone').value.trim();
       const local = localSel.value;
@@ -133,12 +134,20 @@
 
       if (linhas.find(l => l.split(',')[1] === cpf && l.split(',')[6] === 'agendar')) {
         mensagem.textContent = 'Você já tem um agendamento ativo. Cancele o anterior para reagendar.';
-        mensagem.className = 'mensagem erro'; return;
+        mensagem.className = 'mensagem erro';
+        return;
       }
 
-      await fetch(ENDPOINT, {method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`});
-      mensagem.textContent = 'Agendamento realizado com sucesso!'; mensagem.className='mensagem sucesso';
-      form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      await fetch(ENDPOINT, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=agendar`
+      });
+      mensagem.textContent = 'Agendamento realizado com sucesso!';
+      mensagem.className = 'mensagem sucesso';
+      form.reset();
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
 
     cancelarBtn.addEventListener('click', async () => {
@@ -151,13 +160,25 @@
       const texto = await (await fetch(URL_CSV)).text();
       const linhas = texto.trim().split('\n').slice(1);
 
-      if (!linhas.some(l => {const p=l.split(','); return p[1]===cpf && p[2]===tel && p[3]===local && p[4]===data && p[5]===horario && p[6]==='agendar';})) {
-        mensagem.textContent='Nenhum agendamento encontrado para cancelar.'; mensagem.className='mensagem erro'; return;
+      if (!linhas.some(l => {
+        const p = l.split(',');
+        return p[1] === cpf && p[2] === tel && p[3] === local && p[4] === data && p[5] === horario && p[6] === 'agendar';
+      })) {
+        mensagem.textContent = 'Nenhum agendamento encontrado para cancelar.';
+        mensagem.className = 'mensagem erro';
+        return;
       }
 
-      await fetch(ENDPOINT,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:`nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`});
-      mensagem.textContent=`Agendamento cancelado: ${nome} em ${data} às ${horario}`;
-      mensagem.className='mensagem sucesso'; form.reset(); dataSel.innerHTML='<option value="">Selecione a Data</option>'; horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      await fetch(ENDPOINT, {
+        method: 'POST', mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `nome=${encodeURIComponent(nome)}&cpf=${encodeURIComponent(cpf)}&telefone=${encodeURIComponent(tel)}&local=${encodeURIComponent(local)}&data=${encodeURIComponent(data)}&horario=${encodeURIComponent(horario)}&acao=cancelar`
+      });
+      mensagem.textContent = `Agendamento cancelado: ${nome} em ${data} às ${horario}`;
+      mensagem.className = 'mensagem sucesso';
+      form.reset();
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
     });
   </script>
 </body>
