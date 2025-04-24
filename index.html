@@ -100,15 +100,37 @@
     const mensagem = document.getElementById('mensagem');
     const cancelarBtn = document.getElementById('cancelarBtn');
 
-    localSel.addEventListener('change', () => {
+    localSel.addEventListener('change', async () => {
       const local = localSel.value;
       dataSel.innerHTML = '<option value="">Selecione a Data</option>';
-      if (datas[local]) {
-        datas[local].forEach(d => {
-          const opt = document.createElement('option');
-          opt.value = d;
-          opt.textContent = d;
-          dataSel.appendChild(opt);
+
+      if (!datas[local]) return;
+
+      // Busca CSV e conta os agendamentos por data
+      const resposta = await fetch(URL_CSV);
+      const texto = await resposta.text();
+      const linhas = texto.trim().split('
+').slice(1);
+
+      const contagemPorData = {};
+      linhas.forEach(l => {
+        const partes = l.split(',');
+        const localLinha = partes[2];
+        const dataLinha = partes[3];
+        if (localLinha === local) {
+          contagemPorData[dataLinha] = (contagemPorData[dataLinha] || 0) + 1;
+        }
+      });
+
+      datas[local].forEach(d => {
+        const agendados = contagemPorData[d] || 0;
+        const vagasRestantes = Math.max(0, 5 - agendados);
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = `${d} - ${vagasRestantes} vaga(s)`;
+        opt.disabled = vagasRestantes <= 0;
+        dataSel.appendChild(opt);
+      });
         });
       }
     });
