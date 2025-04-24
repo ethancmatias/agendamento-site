@@ -94,7 +94,9 @@
       dataSel.innerHTML='<option value="">Selecione a Data</option>';
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
       const loc=localSel.value;if(!loc) return;
-      let rows=[];try{rows=rowsToArray(await fetchCSV());}catch(e){console.warn('CSV falhou, sem contagem de vagas');}
+      let rows=null;
+      try { rows = rowsToArray(await fetchCSV()); }
+      catch(e){ console.warn('Planilha inacessível – exibindo datas mesmo assim'); }
       datasMap[loc].forEach(d=>{
         const livres=horariosMap[loc].reduce((s,h)=>s+(ocupados(rows,loc,d,h)<LIMITE?1:0),0);
         const opt=new Option(`${d} - ${livres} horário(s)`,d);
