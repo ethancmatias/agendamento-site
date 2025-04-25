@@ -87,7 +87,12 @@
 
     /* ====== POPULAR SELECTS ====== */
     localSel.addEventListener('change',()=>{
-      dataSel.innerHTML='<option value="">Selecione a Data</option>';
+      const loc = localSel.value.trim();
+      dataSel.innerHTML = '<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML = '<option value="">Selecione o Horário</option>';
+      if (!loc || !datasMap[loc]) return;  // nada a mostrar se não existir
+      datasMap[loc].forEach(d => dataSel.add(new Option(d, d)));
+    });
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
       datasMap[localSel.value]?.forEach(d=>dataSel.add(new Option(d,d)));
     });
