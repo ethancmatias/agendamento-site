@@ -60,6 +60,7 @@
   </div>
 
   <script>
+    /* ====== CONFIG ====== */
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQD1qSlIS71--xdEJ3LJCzuXdrF876fOzrsotEL45rPraJ_Cg8UkJvQ8wtZXn2eWAzMGQevP2qtviJH/pub?gid=0&single=true&output=csv';
     const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwvYUDpWuWa9SirLpY8OCzgBShxYwMtupIFiRnqmXewgt18dbtVzmGyRsqvaFQSB2WkUA/exec';
 
@@ -72,6 +73,7 @@
       'Curupati Peixe-CE': ['13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45','15:00','15:15','15:30','15:45','16:00','16:15','16:30','16:45']
     };
 
+    /* ====== ELEMENTOS ====== */
     const localSel   = document.getElementById('local');
     const dataSel    = document.getElementById('data');
     const horarioSel = document.getElementById('horario');
@@ -79,7 +81,11 @@
     const form       = document.getElementById('form');
     const cancelBtn  = document.getElementById('cancelarBtn');
 
-    /* popular selects */
+    /* ====== HELPERS ====== */
+    const fetchCSV = () => fetch(CSV_URL).then(r=>r.text()).then(t=>t.trim().split('\n').slice(1));
+    const showMsg=(t,ok=false)=>{msgEl.textContent=t;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
+
+    /* ====== POPULAR SELECTS ====== */
     localSel.addEventListener('change',()=>{
       dataSel.innerHTML='<option value="">Selecione a Data</option>';
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
@@ -90,28 +96,33 @@
       horariosMap[localSel.value]?.forEach(h=>horarioSel.add(new Option(h,h)));
     });
 
-    const showMsg=(t,ok=false)=>{msgEl.textContent=t;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
-
+    /* ====== SUBMISSÃO ====== */
     form.addEventListener('submit',async e=>{
       e.preventDefault(); showMsg('');
       const nome=document.getElementById('nome').value.trim();
-      const cpf=document.getElementById('cpf').value.trim();
+      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
       const telefone=document.getElementById('telefone').value.trim();
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
 
+      // Verifica se CPF já tem agendamento
+      let rows=[];
+      try{rows=await fetchCSV();}catch{}
+      const agendExist = rows.find(r=>r.split(',')[1].replace(/[^\d]/g,'')===cpf);
+      if(agendExist){
+        const [nomeE,,locE,dtE,hrE] = agendExist.split(',');
+        return showMsg(`Você já possui agendamento em ${dtE} às ${hrE} (${locE}). Cancele antes de reagendar.`);
+      }
+
+      // envia
       await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({nome,cpf,telefone,local:loc,data:d,horario:h,acao:'agendar'})});
       showMsg('Agendamento realizado!',true);form.reset();
-      dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+      dataSel.innerHTML='<option value="">Selecione a Data</option>';
+      horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
     });
 
+    /* ====== CANCELAMENTO ====== */
     cancelBtn.addEventListener('click',async()=>{
-      const cpf=document.getElementById('cpf').value.trim();
+      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
       if(!cpf||!loc||!d||!h) return showMsg('Preencha CPF, local, data e horário.');
-      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({cpf,local:loc,data:d,horario:h,acao:'cancelar'})});
-      showMsg('Agendamento cancelado!',true);form.reset();
-      dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-    });
-  </script>
-</body>
-</html>
+      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers
