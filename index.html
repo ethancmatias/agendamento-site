@@ -33,12 +33,12 @@
       </select>
 
       <label for="data">Data:</label>
-      <select id="data" required disabled>
+      <select id="data" required>
         <option value="">Selecione a Data</option>
       </select>
 
       <label for="horario">Horário:</label>
-      <select id="horario" required disabled>
+      <select id="horario" required>
         <option value="">Selecione o Horário</option>
       </select>
 
@@ -79,20 +79,15 @@
     const form       = document.getElementById('form');
     const cancelBtn  = document.getElementById('cancelarBtn');
 
-    const fetchCSV = () => fetch(CSV_URL).then(r=>r.text()).then(t=>t.trim().split('\n').slice(1));
-
     /* popular selects */
     localSel.addEventListener('change',()=>{
       dataSel.innerHTML='<option value="">Selecione a Data</option>';
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
-      horarioSel.disabled=true;
       datasMap[localSel.value]?.forEach(d=>dataSel.add(new Option(d,d)));
-      dataSel.disabled=false;
     });
     dataSel.addEventListener('change',()=>{
       horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
       horariosMap[localSel.value]?.forEach(h=>horarioSel.add(new Option(h,h)));
-      horarioSel.disabled=false;
     });
 
     const showMsg=(t,ok=false)=>{msgEl.textContent=t;msgEl.className=`mensagem ${ok?'sucesso':'erro'}`};
@@ -100,23 +95,23 @@
     form.addEventListener('submit',async e=>{
       e.preventDefault(); showMsg('');
       const nome=document.getElementById('nome').value.trim();
-      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
+      const cpf=document.getElementById('cpf').value.trim();
       const telefone=document.getElementById('telefone').value.trim();
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
 
-      /* regra: 1 CPF apenas */
-      let rows=[];
-      try{rows=await fetchCSV();}catch{}
-      if(rows.some(r=>r.split(',')[1].replace(/[^\d]/g,'')===cpf))
-        return showMsg('Este CPF já possui um agendamento.');
-
       await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({nome,cpf,telefone,local:loc,data:d,horario:h,acao:'agendar'})});
-      showMsg('Agendamento realizado!',true);form.reset();dataSel.disabled=true;horarioSel.disabled=true;
+      showMsg('Agendamento realizado!',true);form.reset();
       dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
     });
 
     cancelBtn.addEventListener('click',async()=>{
-      const cpf=document.getElementById('cpf').value.replace(/[^\d]/g,'');
+      const cpf=document.getElementById('cpf').value.trim();
       const loc=localSel.value;const d=dataSel.value;const h=horarioSel.value;
       if(!cpf||!loc||!d||!h) return showMsg('Preencha CPF, local, data e horário.');
-      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers
+      await fetch(APPS_SCRIPT_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({cpf,local:loc,data:d,horario:h,acao:'cancelar'})});
+      showMsg('Agendamento cancelado!',true);form.reset();
+      dataSel.innerHTML='<option value="">Selecione a Data</option>';horarioSel.innerHTML='<option value="">Selecione o Horário</option>';
+    });
+  </script>
+</body>
+</html>
